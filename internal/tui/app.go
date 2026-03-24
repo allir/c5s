@@ -1,0 +1,321 @@
+// Package tui implements the Bubble Tea terminal user interface for c5s.
+package tui
+
+import (
+	"os"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/allir/c5s/internal/claude"
+	"github.com/allir/c5s/internal/tui/theme"
+	"github.com/allir/c5s/internal/tui/views"
+)
+
+// DefaultRefreshInterval is how often the session list auto-refreshes.
+const DefaultRefreshInterval = 1500 * time.Millisecond
+
+// chromeHeight is the number of lines used by header (2), separator, and status bar.
+const chromeHeight = 4
+
+// viewState tracks which view is currently active.
+type viewState int
+
+const (
+	viewSessions viewState = iota
+	viewDetail
+)
+
+// Messages
+
+type sessionsFetchedMsg struct {
+	sessions []claude.Session
+	err      error
+}
+
+type approvalWrittenMsg struct {
+	err error
+}
+
+type tickMsg struct{}
+
+// Model is the root Bubble Tea model for the c5s application.
+type Model struct {
+	width           int
+	height          int
+	view            viewState
+	sessions        views.SessionsModel
+	detail          *views.DetailModel
+	keys            KeyMap
+	configDir       string
+	refreshInterval time.Duration
+	err             error
+}
+
+// NewModel creates a new root model.
+func NewModel(configDir string, refreshInterval time.Duration) Model {
+	return Model{
+		sessions:        views.NewSessionsModel(),
+		keys:            DefaultKeyMap(),
+		configDir:       configDir,
+		refreshInterval: refreshInterval,
+	}
+}
+
+// Init returns the initial command to run on startup.
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.fetchSessions(), m.tickCmd())
+}
+
+// Update handles messages and updates the model.
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case tickMsg:
+		return m, tea.Batch(m.fetchSessions(), m.tickCmd())
+
+	case sessionsFetchedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		m.sessions.SetSessions(msg.sessions)
+		// Update detail view session if open
+		if m.detail != nil {
+			for _, s := range msg.sessions {
+				if s.PID == m.detail.Session().PID {
+					m.detail.UpdateSession(s)
+					m.detail.Refresh()
+					break
+				}
+			}
+		}
+		return m, nil
+
+	case approvalWrittenMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		}
+		return m, m.fetchSessions()
+
+	case tea.KeyPressMsg:
+		return m.handleKey(msg)
+
+	case tea.MouseWheelMsg:
+		if m.view == viewDetail && m.detail != nil {
+			if msg.Mouse().Button == tea.MouseWheelUp {
+				m.detail.ScrollUp()
+			} else if msg.Mouse().Button == tea.MouseWheelDown {
+				m.detail.ScrollDown()
+			}
+		}
+	}
+
+	return m, nil
+}
+
+// View renders the entire application.
+func (m Model) View() tea.View {
+	var content string
+
+	if m.width == 0 {
+		content = "Starting c5s..."
+	} else if m.view == viewDetail && m.detail != nil {
+		content = m.renderDetailView()
+	} else {
+		content = m.renderSessionsView()
+	}
+
+	v := tea.NewView(content)
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m Model) renderSessionsView() string {
+	header := headerView(m.sessions.SessionCount(), m.width)
+	statusBar := sessionsStatusBar(m.width)
+	approvalLine := m.sessions.ApprovalLine(m.width)
+
+	extra := 0
+	if approvalLine != "" {
+		extra = 1
+	}
+	contentHeight := max(m.height-chromeHeight-extra, 1)
+	m.sessions.SetSize(m.width, contentHeight)
+
+	body := m.sessions.View()
+	separator := theme.SeparatorLine(m.width)
+
+	parts := []string{header, separator, body}
+	if approvalLine != "" {
+		parts = append(parts, approvalLine)
+	}
+	parts = append(parts, statusBar)
+
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+func (m Model) renderDetailView() string {
+	header := m.detail.HeaderInfo()
+	header = lipgloss.NewStyle().Width(m.width).PaddingLeft(1).Render(header)
+	statusBar := detailStatusBar(m.width)
+	separator := theme.SeparatorLine(m.width)
+	approvalBlock := m.detail.ApprovalBlock(m.width)
+
+	// Detail chrome: header(2) + sep + body + sep + statusbar = chromeHeight+1
+	// Approval block adds: separator + tool + detail + blank + prompt + N options
+	extra := 1 // separator above status bar
+	if approvalBlock != "" {
+		nOpts := len(m.detail.Session().PendingApproval.Options)
+		extra += 1 + 4 + nOpts // separator + (tool, detail, blank, prompt) + options
+	}
+	contentHeight := max(m.height-chromeHeight-extra, 1)
+	m.detail.SetSize(m.width, contentHeight)
+	body := m.detail.View()
+
+	parts := []string{header, separator, body}
+	if approvalBlock != "" {
+		parts = append(parts, theme.SeparatorLine(m.width), approvalBlock)
+	}
+	parts = append(parts, theme.SeparatorLine(m.width), statusBar)
+
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	// Detail view keys
+	if m.view == viewDetail && m.detail != nil {
+		hasApproval := m.detail.Session().PendingApproval != nil
+
+		switch {
+		case matches(key, m.keys.Back):
+			m.view = viewSessions
+			m.detail = nil
+		case matches(key, m.keys.Quit):
+			return m, tea.Quit
+		case matches(key, m.keys.Up):
+			if hasApproval {
+				m.detail.ApprovalCursorUp()
+			} else {
+				m.detail.ScrollUp()
+			}
+		case matches(key, m.keys.Down):
+			if hasApproval {
+				m.detail.ApprovalCursorDown()
+			} else {
+				m.detail.ScrollDown()
+			}
+		case matches(key, m.keys.PageUp):
+			m.detail.PageUp()
+		case matches(key, m.keys.PageDn):
+			m.detail.PageDown()
+		case matches(key, m.keys.Select):
+			// Enter confirms selected approval option
+			if hasApproval {
+				return m, m.writeSelectedApproval()
+			}
+		case matches(key, m.keys.Approve):
+			return m, m.writeApproval(claude.ApprovalOption{Label: "Yes", Allow: true})
+		case matches(key, m.keys.Deny):
+			return m, m.writeApproval(claude.ApprovalOption{Label: "No", Allow: false})
+		}
+		return m, nil
+	}
+
+	// Sessions view keys
+	switch {
+	case matches(key, m.keys.Quit):
+		return m, tea.Quit
+	case matches(key, m.keys.Up):
+		m.sessions.MoveUp()
+	case matches(key, m.keys.Down):
+		m.sessions.MoveDown()
+	case matches(key, m.keys.Select):
+		if sel := m.sessions.SelectedSession(); sel != nil && sel.JSONLPath != "" {
+			detail := views.NewDetailModel(*sel)
+			m.detail = &detail
+			m.view = viewDetail
+		}
+	case matches(key, m.keys.Help):
+		// Placeholder — will show help overlay
+	case matches(key, m.keys.Approve):
+		return m, m.writeApproval(claude.ApprovalOption{Label: "Yes", Allow: true})
+	case matches(key, m.keys.Deny):
+		return m, m.writeApproval(claude.ApprovalOption{Label: "No", Allow: false})
+	}
+
+	return m, nil
+}
+
+func (m Model) tickCmd() tea.Cmd {
+	return tea.Tick(m.refreshInterval, func(time.Time) tea.Msg {
+		return tickMsg{}
+	})
+}
+
+func (m Model) fetchSessions() tea.Cmd {
+	configDir := m.configDir
+	return func() tea.Msg {
+		sessions, hookEvents, err := claude.Scan(configDir)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return sessionsFetchedMsg{err: err}
+			}
+			sessions = nil
+		}
+
+		approvals, _ := claude.ReadPendingApprovals(hookEvents)
+
+		if len(approvals) > 0 {
+			for i := range sessions {
+				if a, ok := approvals[sessions[i].PID]; ok {
+					if sessions[i].LastModified.After(a.Timestamp.Add(claude.ApprovalSettleTime)) {
+						continue
+					}
+					sessions[i].PendingApproval = &a
+					sessions[i].Status = claude.StatusInput
+				}
+			}
+		}
+
+		return sessionsFetchedMsg{sessions: sessions}
+	}
+}
+
+func (m Model) activeSession() *claude.Session {
+	if m.view == viewDetail && m.detail != nil {
+		s := m.detail.Session()
+		return &s
+	}
+	return m.sessions.SelectedSession()
+}
+
+func (m Model) writeApproval(option claude.ApprovalOption) tea.Cmd {
+	sel := m.activeSession()
+	if sel == nil || sel.PendingApproval == nil {
+		return nil
+	}
+	hookPID := sel.PendingApproval.HookPID
+	return func() tea.Msg {
+		return approvalWrittenMsg{err: claude.WriteApprovalDecision(hookPID, option)}
+	}
+}
+
+func (m Model) writeSelectedApproval() tea.Cmd {
+	if m.detail == nil {
+		return nil
+	}
+	opt := m.detail.SelectedApprovalOption()
+	if opt == nil {
+		return nil
+	}
+	return m.writeApproval(*opt)
+}

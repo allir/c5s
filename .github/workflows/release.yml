@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  build:
+    needs: test
+    uses: ./.github/workflows/build.yml
+    with:
+      upload-artifacts: true
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          for dir in artifacts/c5s-*; do
+            name=$(basename "$dir")
+            cp "$dir/$name" "release/$name"
+            (cd release && sha256sum "$name" >> checksums.txt)
+          done
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          echo "## Changes" > changelog.md
+          git log "$RANGE" --pretty=format:"- %s" >> changelog.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: changelog.md
+          files: release/*
+          generate_release_notes: true
