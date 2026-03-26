@@ -3,6 +3,7 @@ package tui
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -164,16 +165,20 @@ func (m Model) renderSessionsView() string {
 func (m Model) renderDetailView() string {
 	header := m.detail.HeaderInfo()
 	header = lipgloss.NewStyle().Width(m.width).PaddingLeft(1).Render(header)
-	statusBar := detailStatusBar(m.detail.CanSendInput(), m.width)
+	statusBar := detailStatusBar(m.width)
 	separator := theme.SeparatorLine(m.width)
 	approvalBlock := m.detail.ApprovalBlock(m.width)
-	inputLine := m.detail.InputLine(m.width)
+
+	// Hide input when approval is showing
+	var inputLine string
+	if approvalBlock == "" {
+		inputLine = m.detail.InputLine(m.width)
+	}
 
 	// Detail chrome: header(2) + sep + body + sep + statusbar = chromeHeight+1
 	extra := 1 // separator above status bar
 	if approvalBlock != "" {
-		nOpts := len(m.detail.Session().PendingApproval.Options)
-		extra += 1 + 4 + nOpts // separator + (tool, detail, blank, prompt) + options
+		extra += 1 + strings.Count(approvalBlock, "\n") + 1 // separator + block lines
 	}
 	if inputLine != "" {
 		extra += 2 // separator + input line
@@ -197,14 +202,35 @@ func (m Model) renderDetailView() string {
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
-	// Detail view: input mode captures all keys
+	// Detail view with input mode: input box captures most keys
 	if m.view == viewDetail && m.detail != nil && m.detail.InputMode() {
+		hasApproval := m.detail.Session().PendingApproval != nil
+
 		switch {
 		case matches(key, m.keys.Back):
-			m.detail.ExitInputMode()
+			m.view = viewSessions
+			m.detail = nil
+		case matches(key, m.keys.Quit):
+			return m, tea.Quit
 		case matches(key, m.keys.Select):
+			// Enter: confirm approval option if pending, otherwise send input
+			if hasApproval {
+				return m, m.writeSelectedApproval()
+			}
 			if err := m.detail.SendInput(); err != nil {
 				m.err = err
+			}
+		case matches(key, m.keys.Up):
+			if hasApproval {
+				m.detail.ApprovalCursorUp()
+			} else {
+				m.detail.ScrollUp()
+			}
+		case matches(key, m.keys.Down):
+			if hasApproval {
+				m.detail.ApprovalCursorDown()
+			} else {
+				m.detail.ScrollDown()
 			}
 		case key == "backspace":
 			m.detail.InputBackspace()
@@ -212,8 +238,11 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.detail.InputCursorLeft()
 		case key == "right":
 			m.detail.InputCursorRight()
+		case matches(key, m.keys.PageUp):
+			m.detail.PageUp()
+		case matches(key, m.keys.PageDn):
+			m.detail.PageDown()
 		default:
-			// Insert printable characters
 			if k := tea.KeyPressMsg(msg); k.Text != "" {
 				m.detail.InputInsert(k.Text)
 			}
@@ -221,7 +250,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Detail view keys
+	// Detail view without input (no tmux)
 	if m.view == viewDetail && m.detail != nil {
 		hasApproval := m.detail.Session().PendingApproval != nil
 
@@ -231,9 +260,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.detail = nil
 		case matches(key, m.keys.Quit):
 			return m, tea.Quit
-		case key == "i":
-			// Enter input mode if tmux is available
-			m.detail.EnterInputMode()
 		case matches(key, m.keys.Up):
 			if hasApproval {
 				m.detail.ApprovalCursorUp()

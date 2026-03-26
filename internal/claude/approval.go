@@ -175,30 +175,16 @@ func buildApprovalOptions(toolName string, suggestions []map[string]any) []Appro
 		{Label: "Yes", Allow: true},
 	}
 
-	// Add "allow all [tool] this session" for tools that benefit from it
+	// For Edit/Write, always offer "accept all edits" via setMode
+	// (this matches Claude Code's shift+tab behavior and isn't in permission_suggestions)
 	switch toolName {
 	case "Edit", "Write":
-		// Use setMode to acceptEdits — covers all edit/write operations
 		options = append(options, ApprovalOption{
 			Label: "Yes, allow all edits this session",
 			Allow: true,
 			UpdatedPermissions: []map[string]any{{
 				"type":        "setMode",
 				"mode":        "acceptEdits",
-				"destination": "session",
-			}},
-		})
-	case "Bash", "Glob", "Grep", "Read":
-		// Use addRules for specific tool
-		options = append(options, ApprovalOption{
-			Label: "Yes, allow all " + toolName + " this session",
-			Allow: true,
-			UpdatedPermissions: []map[string]any{{
-				"type": "addRules",
-				"rules": []any{map[string]any{
-					"toolName": toolName,
-				}},
-				"behavior":    "allow",
 				"destination": "session",
 			}},
 		})

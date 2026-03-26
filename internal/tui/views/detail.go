@@ -32,9 +32,11 @@ type DetailModel struct {
 
 // NewDetailModel creates a detail view for the given session.
 func NewDetailModel(session claude.Session) DetailModel {
+	pane := claude.FindTmuxPane(session.PID)
 	m := DetailModel{
-		session:  session,
-		tmuxPane: claude.FindTmuxPane(session.PID),
+		session:   session,
+		tmuxPane:  pane,
+		inputMode: pane != "", // auto-enable input if tmux is available
 	}
 	m.loadTranscript()
 	return m
@@ -101,7 +103,7 @@ func (m *DetailModel) SendInput() error {
 		return nil
 	}
 	err := claude.SendTmuxKeys(m.tmuxPane, m.inputText)
-	m.inputMode = false
+	// Stay in input mode, just clear the text
 	m.inputText = ""
 	m.inputCursor = 0
 	return err
@@ -182,8 +184,38 @@ func (m *DetailModel) ApprovalBlock(width int) string {
 	a := m.session.PendingApproval
 	summary := claude.SummarizeToolInput(a.ToolName, a.ToolInput)
 
-	toolLabel := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorWarning).Render(a.ToolName)
+	// Tool name header (e.g., "Bash command", "Edit file")
+	toolHeader := a.ToolName
+	switch a.ToolName {
+	case "Bash":
+		toolHeader = "Bash command"
+	case "Edit":
+		toolHeader = "Edit file"
+	case "Write":
+		toolHeader = "Write file"
+	}
+	toolLabel := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorWarning).Render(toolHeader)
+
+	// Command/file details
 	detail := lipgloss.NewStyle().Foreground(theme.ColorDimText).PaddingLeft(2).Render(summary)
+
+	// Description if available (e.g., "Echo with subshell to trigger approval")
+	var descLine string
+	if desc, ok := a.ToolInput["description"].(string); ok && desc != "" {
+		descLine = lipgloss.NewStyle().Foreground(theme.ColorMuted).PaddingLeft(2).Render(desc)
+	}
+
+	// Context about why approval is needed
+	var contextLine string
+	if a.ToolName == "Bash" {
+		if cmd, ok := a.ToolInput["command"].(string); ok {
+			if strings.Contains(cmd, "$(") || strings.Contains(cmd, "`") {
+				contextLine = lipgloss.NewStyle().Foreground(theme.ColorText).Render(
+					"Command contains $() command substitution",
+				)
+			}
+		}
+	}
 
 	prompt := lipgloss.NewStyle().Foreground(theme.ColorText).Render("Do you want to proceed?")
 
@@ -205,13 +237,18 @@ func (m *DetailModel) ApprovalBlock(width int) string {
 		optLines = append(optLines, line)
 	}
 
-	block := toolLabel + "\n" +
-		detail + "\n" +
-		"\n" +
-		prompt + "\n" +
-		strings.Join(optLines, "\n")
+	// Build block
+	lines := []string{toolLabel, "", detail}
+	if descLine != "" {
+		lines = append(lines, descLine)
+	}
+	if contextLine != "" {
+		lines = append(lines, "", contextLine)
+	}
+	lines = append(lines, "", prompt)
+	lines = append(lines, optLines...)
 
-	return lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(block)
+	return lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(strings.Join(lines, "\n"))
 }
 
 // ApprovalCursorUp moves the approval selection up.

@@ -20,8 +20,8 @@ type KeyMap struct {
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Quit:    []string{"q", "ctrl+c"},
-		Up:      []string{"up", "k"},
-		Down:    []string{"down", "j"},
+		Up:      []string{"up"},
+		Down:    []string{"down"},
 		PageUp:  []string{"pgup"},
 		PageDn:  []string{"pgdown"},
 		Select:  []string{"enter"},
