@@ -24,15 +24,110 @@ type DetailModel struct {
 	approvalCursor int                   // selected option in approval prompt
 	mdRender       *glamour.TermRenderer // cached markdown renderer
 	mdWidth        int                   // width the renderer was created for
+	inputMode      bool                  // true when text input is active
+	inputText      string                // current text being typed
+	inputCursor    int                   // cursor position in input text
+	tmuxPane       string                // cached tmux pane ID for this session
 }
 
 // NewDetailModel creates a detail view for the given session.
 func NewDetailModel(session claude.Session) DetailModel {
 	m := DetailModel{
-		session: session,
+		session:  session,
+		tmuxPane: claude.FindTmuxPane(session.PID),
 	}
 	m.loadTranscript()
 	return m
+}
+
+// CanSendInput returns true if we can send input to this session (via tmux).
+func (m *DetailModel) CanSendInput() bool {
+	return m.tmuxPane != ""
+}
+
+// InputMode returns whether the text input is active.
+func (m *DetailModel) InputMode() bool {
+	return m.inputMode
+}
+
+// EnterInputMode activates the text input.
+func (m *DetailModel) EnterInputMode() {
+	if m.tmuxPane == "" {
+		return
+	}
+	m.inputMode = true
+	m.inputText = ""
+	m.inputCursor = 0
+}
+
+// ExitInputMode deactivates the text input.
+func (m *DetailModel) ExitInputMode() {
+	m.inputMode = false
+	m.inputText = ""
+	m.inputCursor = 0
+}
+
+// InputInsert adds a character at the cursor position.
+func (m *DetailModel) InputInsert(s string) {
+	m.inputText = m.inputText[:m.inputCursor] + s + m.inputText[m.inputCursor:]
+	m.inputCursor += len(s)
+}
+
+// InputBackspace deletes the character before the cursor.
+func (m *DetailModel) InputBackspace() {
+	if m.inputCursor > 0 {
+		m.inputText = m.inputText[:m.inputCursor-1] + m.inputText[m.inputCursor:]
+		m.inputCursor--
+	}
+}
+
+// InputCursorLeft moves the input cursor left.
+func (m *DetailModel) InputCursorLeft() {
+	if m.inputCursor > 0 {
+		m.inputCursor--
+	}
+}
+
+// InputCursorRight moves the input cursor right.
+func (m *DetailModel) InputCursorRight() {
+	if m.inputCursor < len(m.inputText) {
+		m.inputCursor++
+	}
+}
+
+// SendInput sends the current input text to the session via tmux.
+func (m *DetailModel) SendInput() error {
+	if m.inputText == "" {
+		return nil
+	}
+	err := claude.SendTmuxKeys(m.tmuxPane, m.inputText)
+	m.inputMode = false
+	m.inputText = ""
+	m.inputCursor = 0
+	return err
+}
+
+// InputLine renders the text input line.
+func (m *DetailModel) InputLine(width int) string {
+	if !m.inputMode {
+		return ""
+	}
+	prompt := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Bold(true).Render("❯ ")
+
+	// Render text with cursor
+	before := m.inputText[:m.inputCursor]
+	after := m.inputText[m.inputCursor:]
+	cursor := lipgloss.NewStyle().Background(theme.ColorText).Foreground(theme.ColorBg).Render(" ")
+	if len(after) > 0 {
+		cursor = lipgloss.NewStyle().Background(theme.ColorText).Foreground(theme.ColorBg).Render(string(after[0]))
+		after = after[1:]
+	}
+
+	text := lipgloss.NewStyle().Foreground(theme.ColorText).Render(before) +
+		cursor +
+		lipgloss.NewStyle().Foreground(theme.ColorText).Render(after)
+
+	return lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(prompt + text)
 }
 
 // SetSize updates the available dimensions and invalidates the line cache.

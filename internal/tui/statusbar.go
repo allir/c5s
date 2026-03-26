@@ -25,14 +25,18 @@ func sessionsStatusBar(width int) string {
 }
 
 // detailStatusBar renders the status bar for the detail view.
-func detailStatusBar(width int) string {
-	return renderStatusBar(width, []keyHint{
+func detailStatusBar(canInput bool, width int) string {
+	hints := []keyHint{
 		{"esc", "back"},
 		{"↑/↓", "scroll"},
 		{"a", "approve"},
 		{"x", "deny"},
-		{"?", "help"},
-	})
+	}
+	if canInput {
+		hints = append(hints, keyHint{"i", "input"})
+	}
+	hints = append(hints, keyHint{"?", "help"})
+	return renderStatusBar(width, hints)
 }
 
 func renderStatusBar(width int, hints []keyHint) string {

@@ -164,16 +164,19 @@ func (m Model) renderSessionsView() string {
 func (m Model) renderDetailView() string {
 	header := m.detail.HeaderInfo()
 	header = lipgloss.NewStyle().Width(m.width).PaddingLeft(1).Render(header)
-	statusBar := detailStatusBar(m.width)
+	statusBar := detailStatusBar(m.detail.CanSendInput(), m.width)
 	separator := theme.SeparatorLine(m.width)
 	approvalBlock := m.detail.ApprovalBlock(m.width)
+	inputLine := m.detail.InputLine(m.width)
 
 	// Detail chrome: header(2) + sep + body + sep + statusbar = chromeHeight+1
-	// Approval block adds: separator + tool + detail + blank + prompt + N options
 	extra := 1 // separator above status bar
 	if approvalBlock != "" {
 		nOpts := len(m.detail.Session().PendingApproval.Options)
 		extra += 1 + 4 + nOpts // separator + (tool, detail, blank, prompt) + options
+	}
+	if inputLine != "" {
+		extra += 2 // separator + input line
 	}
 	contentHeight := max(m.height-chromeHeight-extra, 1)
 	m.detail.SetSize(m.width, contentHeight)
@@ -183,6 +186,9 @@ func (m Model) renderDetailView() string {
 	if approvalBlock != "" {
 		parts = append(parts, theme.SeparatorLine(m.width), approvalBlock)
 	}
+	if inputLine != "" {
+		parts = append(parts, theme.SeparatorLine(m.width), inputLine)
+	}
 	parts = append(parts, theme.SeparatorLine(m.width), statusBar)
 
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
@@ -190,6 +196,30 @@ func (m Model) renderDetailView() string {
 
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Detail view: input mode captures all keys
+	if m.view == viewDetail && m.detail != nil && m.detail.InputMode() {
+		switch {
+		case matches(key, m.keys.Back):
+			m.detail.ExitInputMode()
+		case matches(key, m.keys.Select):
+			if err := m.detail.SendInput(); err != nil {
+				m.err = err
+			}
+		case key == "backspace":
+			m.detail.InputBackspace()
+		case key == "left":
+			m.detail.InputCursorLeft()
+		case key == "right":
+			m.detail.InputCursorRight()
+		default:
+			// Insert printable characters
+			if k := tea.KeyPressMsg(msg); k.Text != "" {
+				m.detail.InputInsert(k.Text)
+			}
+		}
+		return m, nil
+	}
 
 	// Detail view keys
 	if m.view == viewDetail && m.detail != nil {
@@ -201,6 +231,9 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.detail = nil
 		case matches(key, m.keys.Quit):
 			return m, tea.Quit
+		case key == "i":
+			// Enter input mode if tmux is available
+			m.detail.EnterInputMode()
 		case matches(key, m.keys.Up):
 			if hasApproval {
 				m.detail.ApprovalCursorUp()
@@ -218,7 +251,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case matches(key, m.keys.PageDn):
 			m.detail.PageDown()
 		case matches(key, m.keys.Select):
-			// Enter confirms selected approval option
 			if hasApproval {
 				return m, m.writeSelectedApproval()
 			}
