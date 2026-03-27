@@ -82,7 +82,7 @@ Press `s` to switch themes. Your selection is saved to `~/.config/c5s/config.jso
 
 ### Custom Themes
 
-Drop a JSON file in `~/.config/c5s/themes/` and it will appear in the theme picker. The file can include a `name` field, or the filename (minus `.json`) is used as the theme name.
+Place `.json` files in `~/.config/c5s/themes/` — they appear in the theme picker on next launch. The `name` field sets the display name; if omitted, the filename (minus `.json`) is used. At minimum, `fg` and `bg` must be set. Omitted fields default to empty (no color).
 
 ```json
 {
@@ -100,12 +100,14 @@ Drop a JSON file in `~/.config/c5s/themes/` and it will appear in the theme pick
     "purple": "#AE81FF",
     "orange": "#FD971F",
     "diff_add_fg": "#A6E22E",
-    "diff_add_bg": "#2B3A1A",
+    "diff_add_bg": "#233009",
     "diff_remove_fg": "#F92672",
-    "diff_remove_bg": "#3A1A22"
+    "diff_remove_bg": "#420A1E"
   }
 }
 ```
+
+Color roles: `pink` = keywords/danger, `cyan` = links/types, `green` = success/names, `yellow` = strings/warnings, `purple` = constants/numbers, `orange` = secondary accent. The `diff_*` colors control inline diff highlighting in the transcript view.
 
 ## License
 
