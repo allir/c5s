@@ -396,7 +396,9 @@ func (m *DetailModel) renderLines() []string {
 	var lines []string
 	var lastRole claude.Role
 
-	for _, e := range m.entries {
+	for i := 0; i < len(m.entries); i++ {
+		e := m.entries[i]
+
 		// Blank line between role changes and before tool interactions
 		switch {
 		case e.Role == claude.RoleToolUse:
@@ -445,28 +447,13 @@ func (m *DetailModel) renderLines() []string {
 			lines = append(lines, bullet+" "+tool)
 
 		case claude.RoleDiff:
-			// Diff lines: red bg for -, green bg for +, dim for context
-			if len(e.Content) >= 2 {
-				switch e.Content[0] {
-				case '-':
-					styled := lipgloss.NewStyle().
-						Foreground(theme.ColorDiffRemoveFg).
-						Background(theme.ColorDiffRemoveBg).
-						Render("  " + e.Content)
-					lines = append(lines, styled)
-				case '+':
-					styled := lipgloss.NewStyle().
-						Foreground(theme.ColorDiffAddFg).
-						Background(theme.ColorDiffAddBg).
-						Render("  " + e.Content)
-					lines = append(lines, styled)
-				default:
-					styled := lipgloss.NewStyle().
-						Foreground(theme.ColorMuted).
-						Render("  " + e.Content)
-					lines = append(lines, styled)
-				}
+			// Collect consecutive diff entries for batch syntax highlighting
+			j := i
+			for j < len(m.entries) && m.entries[j].Role == claude.RoleDiff {
+				j++
 			}
+			lines = append(lines, renderDiffBlock(m.entries[i:j])...)
+			i = j - 1 // -1 because the loop will i++
 
 		case claude.RoleToolResult:
 			// Tool result: indented with └─ connector

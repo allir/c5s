@@ -33,10 +33,11 @@ const (
 
 // TranscriptEntry represents a single renderable entry from a session transcript.
 type TranscriptEntry struct {
-	Role    Role        // entry type
-	Content string      // rendered text
-	ToolID  string      // tool_use ID (for matching tool_use → tool_result)
-	Outcome ToolOutcome // tool use result status (only for tool_use/tool_result entries)
+	Role     Role        // entry type
+	Content  string      // rendered text
+	ToolID   string      // tool_use ID (for matching tool_use → tool_result)
+	Outcome  ToolOutcome // tool use result status (only for tool_use/tool_result entries)
+	FilePath string      // source file path (for diff syntax highlighting)
 }
 
 // ReadTranscript reads the tail of a session JSONL file and returns
@@ -173,11 +174,13 @@ func parseAssistantMessage(content any, entries *[]TranscriptEntry) {
 
 			// For Edit calls, add diff preview lines
 			if name == "Edit" {
+				fp, _ := input["file_path"].(string)
 				if diffLines := formatEditDiff(input); len(diffLines) > 0 {
 					for _, dl := range diffLines {
 						*entries = append(*entries, TranscriptEntry{
-							Role:    RoleDiff,
-							Content: dl,
+							Role:     RoleDiff,
+							Content:  dl,
+							FilePath: fp,
 						})
 					}
 				}
