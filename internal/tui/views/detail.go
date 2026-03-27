@@ -22,7 +22,7 @@ type DetailModel struct {
 	height         int
 	lastMtime      int64                 // last known JSONL mtime (unix nano), for change detection
 	approvalCursor int                   // selected option in approval prompt
-	mdRender       *glamour.TermRenderer // cached markdown renderer
+	mdCache        *glamour.TermRenderer // cached markdown renderer
 	mdWidth        int                   // width the renderer was created for
 	inputMode      bool                  // true when text input is active
 	inputText      string                // current text being typed
@@ -279,11 +279,20 @@ func (m *DetailModel) SelectedApprovalOption() *claude.ApprovalOption {
 
 // UpdateSession updates the session metadata (e.g., status changes on refresh).
 func (m *DetailModel) UpdateSession(session claude.Session) {
-	m.session = session
-	// Reset approval cursor if the approval changed
-	if session.PendingApproval == nil {
+	// Reset approval cursor if the approval identity changed
+	oldHookPID := 0
+	if m.session.PendingApproval != nil {
+		oldHookPID = m.session.PendingApproval.HookPID
+	}
+	newHookPID := 0
+	if session.PendingApproval != nil {
+		newHookPID = session.PendingApproval.HookPID
+	}
+	if oldHookPID != newHookPID {
 		m.approvalCursor = 0
 	}
+
+	m.session = session
 }
 
 // View renders the detail view.
@@ -466,19 +475,19 @@ func (m *DetailModel) renderLines() []string {
 }
 
 // wrapText wraps a string to the given width, preserving existing newlines.
-// mdRenderer returns a cached glamour renderer for the given width.
+// mdRenderer returns a cached glamour renderer for the current width.
 func (m *DetailModel) mdRenderer() *glamour.TermRenderer {
-	if m.mdRender == nil || m.mdWidth != m.width {
+	if m.mdCache == nil || m.mdWidth != m.width {
 		r, err := glamour.NewTermRenderer(
 			glamour.WithStyles(theme.MonokaiStyleConfig),
 			glamour.WithWordWrap(max(m.width-4, 20)),
 		)
 		if err == nil {
-			m.mdRender = r
+			m.mdCache = r
 			m.mdWidth = m.width
 		}
 	}
-	return m.mdRender
+	return m.mdCache
 }
 
 // renderMarkdown renders markdown content for the terminal.

@@ -42,8 +42,32 @@ make tools
 ## How It Works
 
 1. **Discovery** — Scans `~/.claude/sessions/*.json` for PID files, checks process liveness via `kill -0`.
-2. **Enrichment** — Matches each live session to its project JSONL file under `~/.claude/projects/`, extracting title, git branch, and model from the first few lines.
-3. **Display** — Renders a Bubble Tea TUI with auto-refresh, sortable columns, and status indicators (working/idle).
+2. **Hooks** — Installs Claude Code hooks on startup for real-time status events (prompt submitted, permission requested, session ended).
+3. **Enrichment** — Matches each live session to its project JSONL file under `~/.claude/projects/`, extracting title, git branch, and model.
+4. **Display** — Renders a Bubble Tea TUI with auto-refresh, showing status indicators: **working**, **idle**, **input** (waiting for approval), **finished**.
+5. **Approvals** — When Claude Code requests tool permission, approve or deny directly from the dashboard detail view.
+6. **Tmux Input** — If running in tmux, send text input to Claude Code sessions without switching panes.
+
+## Keyboard Shortcuts
+
+### Session List
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate sessions |
+| `Enter` | Open session detail |
+| `q` / `Ctrl+C` | Quit |
+| `?` | Toggle help |
+
+### Detail View
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Scroll transcript (or navigate approval options) |
+| `PgUp` / `PgDn` | Page scroll |
+| `a` | Approve selected option |
+| `x` | Deny approval |
+| `Escape` | Back to session list |
 
 ## License
 

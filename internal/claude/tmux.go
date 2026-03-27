@@ -35,7 +35,7 @@ func FindTmuxPane(pid int) string {
 		return ""
 	}
 
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		parts := strings.SplitN(strings.TrimSpace(line), " ", 2)
 		if len(parts) == 2 && parts[1] == ttyPath {
 			return parts[0]

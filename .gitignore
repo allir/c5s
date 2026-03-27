@@ -9,6 +9,9 @@
 *.dylib
 *.test
 *.out
+coverage.out
+*.prof
+*.pprof
 
 # IDE
 .idea/
