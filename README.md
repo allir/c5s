@@ -56,6 +56,7 @@ make tools
 |-----|--------|
 | `↑` / `↓` | Navigate sessions |
 | `Enter` | Open session detail |
+| `s` | Settings (theme picker) |
 | `q` / `Ctrl+C` | Quit |
 | `?` | Toggle help |
 
@@ -68,6 +69,43 @@ make tools
 | `a` | Approve selected option |
 | `x` | Deny approval |
 | `Escape` | Back to session list |
+
+## Themes
+
+Built-in themes:
+
+**Dark:** Molokai (default), Catppuccin Mocha, Dracula, GitHub Dark, Nord, Solarized Dark, Tokyo Night
+
+**Light:** Catppuccin Latte, GitHub Light, Solarized Light, Tokyo Night Day
+
+Press `s` to switch themes. Your selection is saved to `~/.config/c5s/config.json`.
+
+### Custom Themes
+
+Drop a JSON file in `~/.config/c5s/themes/` and it will appear in the theme picker. The file can include a `name` field, or the filename (minus `.json`) is used as the theme name.
+
+```json
+{
+  "name": "My Custom Theme",
+  "palette": {
+    "fg": "#F8F8F2",
+    "fg_dim": "#90908A",
+    "bg": "#272822",
+    "bg_alt": "#3E3D32",
+    "comment": "#75715E",
+    "pink": "#F92672",
+    "cyan": "#66D9EF",
+    "green": "#A6E22E",
+    "yellow": "#E6DB74",
+    "purple": "#AE81FF",
+    "orange": "#FD971F",
+    "diff_add_fg": "#A6E22E",
+    "diff_add_bg": "#2B3A1A",
+    "diff_remove_fg": "#F92672",
+    "diff_remove_bg": "#3A1A22"
+  }
+}
+```
 
 ## License
 

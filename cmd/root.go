@@ -49,15 +49,13 @@ func Execute() {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	// Load saved theme preference
+	// Load user themes from config directory, then apply saved preference
+	theme.LoadUserThemes(filepath.Join(claude.C5sConfigDir(), "themes"))
 	cfg := claude.LoadConfig()
-	activeTheme := "Molokai" // default
-	for _, entry := range theme.Palettes {
-		if entry.Name == cfg.Theme {
-			theme.ApplyPalette(entry.Palette)
-			activeTheme = entry.Name
-			break
-		}
+	activeTheme := theme.DefaultTheme.Name
+	if _, p, ok := theme.FindTheme(cfg.Theme); ok {
+		theme.ApplyPalette(p)
+		activeTheme = cfg.Theme
 	}
 
 	configDir := claude.DefaultConfigDir()

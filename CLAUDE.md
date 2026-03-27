@@ -8,10 +8,11 @@ A terminal dashboard for Claude Code sessions, inspired by k9s. It discovers run
 
 ```
 main.go                          # Entry point — delegates to cmd
-cmd/root.go                      # Cobra CLI setup, hook lifecycle, launches the TUI
+cmd/root.go                      # Cobra CLI setup, hook lifecycle, theme loading, launches TUI
 internal/
   claude/
     types.go                     # Session struct & Status enum
+    config.go                    # Config persistence (LoadConfig, SaveConfig)
     dirs.go                      # XDG directory helpers (C5sConfigDir, C5sStateDir)
     dirs_test.go                 # Unit tests for XDG directory helpers
     discovery.go                 # Scan(), PID liveness, JSONL parsing, tool use detection
@@ -30,10 +31,13 @@ internal/
     header.go                    # Header bar rendering
     statusbar.go                 # Bottom status bar
     keys.go                      # Key bindings
-    theme/theme.go               # Color palette and styles
-    theme/markdown.go            # Monokai markdown style config for glamour
+    theme/palette.go             # Palette/Theme types, built-in palettes, user theme loader
+    theme/theme.go               # Semantic color aliases and lipgloss styles from palette
+    theme/markdown.go            # Glamour markdown style config from palette
     views/sessions.go            # Session table view
     views/detail.go              # Session detail view with transcript and approval UI
+    views/highlight.go           # Chroma-based syntax highlighting for diff blocks
+    views/settings.go            # Settings view with theme picker
   version/version.go             # Build-time version info via ldflags
 ```
 
@@ -63,7 +67,8 @@ Status values: `working`, `idle`, `input` (waiting for approval), `finished` (se
 
 - Built on Bubble Tea v2 + Lip Gloss v2.
 - Auto-refreshes session list on a tick.
-- Key bindings defined in `keys.go`, theme in `theme/theme.go`.
+- Key bindings defined in `keys.go`.
+- Three views: session list, detail/transcript, and settings (theme picker).
 
 ### Tool Approval System
 
@@ -78,8 +83,27 @@ Status values: `working`, `idle`, `input` (waiting for approval), `finished` (se
 - Pressing Enter on a session opens the detail view, which reads the JSONL transcript tail (last 2MB) via `ReadTranscript()`.
 - Transcript entries are parsed into typed entries: user prompts, assistant text, tool_use calls (with inline diffs for Edit), and tool_result summaries.
 - Tool outcomes (pending/success/error) are resolved by matching `tool_use` → `tool_result` entries by ID.
-- Markdown content is rendered via glamour with a custom Monokai theme (`theme/markdown.go`).
+- Markdown content is rendered via glamour with a palette-driven style config (`theme/markdown.go`).
+- Edit diffs show syntax-highlighted code with green/red diff backgrounds (`views/highlight.go`).
 - The view auto-refreshes on tick, reloading only when the JSONL mtime changes.
+
+### Theme System (`internal/tui/theme/`)
+
+- **Palette**: raw hex color values for a complete color scheme. Fields have JSON tags for user theme files.
+- **Theme**: pairs a name with a palette. Built-in themes are package-level vars (`ThemeMolokai`, `ThemeDracula`, etc.).
+- **`ApplyPalette()`**: rebuilds all derived `Color*` vars and `Style*` vars at runtime for instant theme switching.
+- **Built-in themes** (7 dark, 4 light): Molokai (default), Catppuccin Mocha, Dracula, GitHub Dark, Nord, Solarized Dark, Tokyo Night, Catppuccin Latte, GitHub Light, Solarized Light, Tokyo Night Day.
+- **User themes**: JSON files in `~/.config/c5s/themes/` are loaded at startup via `LoadUserThemes()`. Supports both full `{"name": "...", "palette": {...}}` and bare palette formats.
+- **Settings view** (`views/settings.go`): press `s` to open, shows themes grouped by dark/light (auto-detected from bg luminance), with color swatches.
+- **Config persistence** (`claude/config.go`): theme selection saved to `~/.config/c5s/config.json`.
+- **Diff bg colors**: computed as dark shades of the diff fg colors, with red boosted ~40% for perceptual luminance compensation (see `tmp/diff-color-tuning.md`).
+
+### Syntax Highlighting (`internal/tui/views/highlight.go`)
+
+- Uses Chroma (transitive dep via glamour) to tokenize code in diff blocks by file extension.
+- Token colors are mapped to the active palette, matching the glamour Chroma config in `markdown.go`.
+- Each token is rendered with its syntax fg color AND the line's diff background, avoiding ANSI reset issues.
+- Consecutive diff entries are batched for block-level tokenization (better context for the lexer).
 
 ### Tmux Integration (`internal/claude/tmux.go`)
 
@@ -104,6 +128,6 @@ make tools
 
 - Go standard project layout with `internal/`.
 - No CGO. Pure Go.
-- Direct dependencies: Bubble Tea, Lip Gloss, Glamour, Cobra, x/sync. Keep it minimal.
+- Direct dependencies: Bubble Tea, Lip Gloss, Glamour, Cobra, Chroma (via glamour), x/sync. Keep it minimal.
 - Tests live next to the code they test (`_test.go` suffix).
 - Version info injected at build time via ldflags (see Makefile).

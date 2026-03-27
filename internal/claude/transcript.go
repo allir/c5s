@@ -246,12 +246,12 @@ func formatEditDiff(input map[string]any) []string {
 	if startLine > 0 {
 		ctxLineNum := startLine - len(beforeCtx)
 		for _, l := range beforeCtx {
-			lines = append(lines, fmt.Sprintf("  %3d  %s", ctxLineNum, l))
+			lines = append(lines, fmt.Sprintf("%3d   %s", ctxLineNum, l))
 			ctxLineNum++
 		}
 	}
 
-	// Diff lines
+	// Diff lines — format: "NNN + code" or "NNN - code" or "NNN   code"
 	newLineNum := lineNum
 	for _, op := range ops {
 		if len(lines) >= maxLines {
@@ -261,24 +261,24 @@ func formatEditDiff(input map[string]any) []string {
 		switch op.kind {
 		case diffEqual:
 			if startLine > 0 {
-				lines = append(lines, fmt.Sprintf("  %3d  %s", lineNum, op.text))
+				lines = append(lines, fmt.Sprintf("%3d   %s", lineNum, op.text))
 			} else {
-				lines = append(lines, "  "+op.text)
+				lines = append(lines, "    "+op.text)
 			}
 			lineNum++
 			newLineNum++
 		case diffDelete:
 			if startLine > 0 {
-				lines = append(lines, fmt.Sprintf("- %3d  %s", lineNum, op.text))
+				lines = append(lines, fmt.Sprintf("%3d - %s", lineNum, op.text))
 			} else {
-				lines = append(lines, "- "+op.text)
+				lines = append(lines, "  - "+op.text)
 			}
 			lineNum++
 		case diffInsert:
 			if startLine > 0 {
-				lines = append(lines, fmt.Sprintf("+ %3d  %s", newLineNum, op.text))
+				lines = append(lines, fmt.Sprintf("%3d + %s", newLineNum, op.text))
 			} else {
-				lines = append(lines, "+ "+op.text)
+				lines = append(lines, "  + "+op.text)
 			}
 			newLineNum++
 		}
@@ -290,7 +290,7 @@ func formatEditDiff(input map[string]any) []string {
 			if len(lines) >= maxLines {
 				break
 			}
-			lines = append(lines, fmt.Sprintf("  %3d  %s", newLineNum, l))
+			lines = append(lines, fmt.Sprintf("%3d   %s", newLineNum, l))
 			newLineNum++
 		}
 	}
