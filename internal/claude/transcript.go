@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -92,13 +93,26 @@ func ReadTranscript(path, cwd string) ([]TranscriptEntry, error) {
 	return entries, nil
 }
 
+// reLocalCommand matches the <command-name>/foo</command-name> tag in
+// local-command-caveat messages that Claude Code emits for slash commands.
+var reLocalCommand = regexp.MustCompile(`<command-name>([^<]+)</command-name>`)
+
 // parseUserMessage extracts text and tool_result entries from a user message.
 func parseUserMessage(content any, entries *[]TranscriptEntry) {
 	switch c := content.(type) {
 	case string:
-		if text := strings.TrimSpace(c); text != "" {
-			*entries = append(*entries, TranscriptEntry{Role: RoleUser, Content: text})
+		text := strings.TrimSpace(c)
+		if text == "" {
+			break
 		}
+		// Local command messages (e.g. /clear) contain XML markup — extract just the command name.
+		if strings.Contains(text, "<local-command-caveat>") {
+			if m := reLocalCommand.FindStringSubmatch(text); m != nil {
+				*entries = append(*entries, TranscriptEntry{Role: RoleUser, Content: m[1]})
+			}
+			break
+		}
+		*entries = append(*entries, TranscriptEntry{Role: RoleUser, Content: text})
 	case []any:
 		for _, block := range c {
 			m, ok := block.(map[string]any)

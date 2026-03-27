@@ -114,6 +114,7 @@ func TestParseUserMessage(t *testing.T) {
 		content     any
 		wantCount   int
 		wantRole    Role
+		wantContent string
 		wantOutcome ToolOutcome
 	}{
 		{
@@ -153,6 +154,18 @@ func TestParseUserMessage(t *testing.T) {
 			content:   "",
 			wantCount: 0,
 		},
+		{
+			name:        "local command /clear",
+			content:     "<local-command-caveat>Caveat: blah</local-command-caveat>\n<command-name>/clear</command-name>\n            <command-message>clear</command-message>\n            <command-args></command-args>",
+			wantCount:   1,
+			wantRole:    RoleUser,
+			wantContent: "/clear",
+		},
+		{
+			name:      "local command without command-name",
+			content:   "<local-command-caveat>Caveat: blah</local-command-caveat>",
+			wantCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -168,6 +181,9 @@ func TestParseUserMessage(t *testing.T) {
 			}
 			if entries[0].Role != tt.wantRole {
 				t.Errorf("role = %q, want %q", entries[0].Role, tt.wantRole)
+			}
+			if tt.wantContent != "" && entries[0].Content != tt.wantContent {
+				t.Errorf("content = %q, want %q", entries[0].Content, tt.wantContent)
 			}
 			if tt.wantOutcome != "" && entries[0].Outcome != tt.wantOutcome {
 				t.Errorf("outcome = %q, want %q", entries[0].Outcome, tt.wantOutcome)
