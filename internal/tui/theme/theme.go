@@ -22,10 +22,12 @@ var (
 	ColorBg        color.Color
 	ColorBgAlt     color.Color
 
-	ColorDiffAddFg    color.Color
-	ColorDiffAddBg    color.Color
-	ColorDiffRemoveFg color.Color
-	ColorDiffRemoveBg color.Color
+	ColorDiffAddFg          color.Color
+	ColorDiffAddBg          color.Color
+	ColorDiffAddInlineBg    color.Color
+	ColorDiffRemoveFg       color.Color
+	ColorDiffRemoveBg       color.Color
+	ColorDiffRemoveInlineBg color.Color
 )
 
 // Layout styles — rebuilt on palette change.
@@ -61,8 +63,10 @@ func ApplyPalette(p Palette) {
 
 	ColorDiffAddFg = lipgloss.Color(p.DiffAddFg)
 	ColorDiffAddBg = lipgloss.Color(p.DiffAddBg)
+	ColorDiffAddInlineBg = lipgloss.Color(p.DiffAddInlineBg)
 	ColorDiffRemoveFg = lipgloss.Color(p.DiffRemoveFg)
 	ColorDiffRemoveBg = lipgloss.Color(p.DiffRemoveBg)
+	ColorDiffRemoveInlineBg = lipgloss.Color(p.DiffRemoveInlineBg)
 
 	applyStyles()
 }

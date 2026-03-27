@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	udiff "github.com/aymanbagabas/go-udiff"
 )
 
 // tailTranscriptSize — bytes to read from the tail of a JSONL
@@ -312,13 +314,13 @@ func formatEditDiff(input map[string]any) []string {
 	return lines
 }
 
-// diffKind represents a diff operation type.
-type diffKind int
+// diffKind represents a diff operation type, aliased from go-udiff.
+type diffKind = udiff.OpKind
 
 const (
-	diffEqual diffKind = iota
-	diffDelete
-	diffInsert
+	diffEqual  = udiff.Equal
+	diffDelete = udiff.Delete
+	diffInsert = udiff.Insert
 )
 
 // diffOp represents a single line in a diff.
@@ -327,15 +329,25 @@ type diffOp struct {
 	text string
 }
 
-// maxDiffInputLines caps the LCS diff input to prevent quadratic memory usage.
-const maxDiffInputLines = 100
-
-// diffLines computes a line-level diff using the LCS (longest common subsequence)
-// algorithm. Returns a sequence of equal/delete/insert operations.
-// Falls back to simple remove-all/add-all if input exceeds maxDiffInputLines.
+// diffLines computes a line-level diff using Myers' algorithm (via go-udiff).
+// Returns a sequence of equal/delete/insert operations.
 func diffLines(old, new []string) []diffOp {
-	// Fall back to simple diff if input is too large for LCS
-	if len(old) > maxDiffInputLines || len(new) > maxDiffInputLines {
+	oldStr := strings.Join(old, "\n") + "\n"
+	newStr := strings.Join(new, "\n") + "\n"
+
+	edits := udiff.Lines(oldStr, newStr)
+	if len(edits) == 0 {
+		// No changes — all lines are equal
+		var ops []diffOp
+		for _, l := range old {
+			ops = append(ops, diffOp{diffEqual, l})
+		}
+		return ops
+	}
+
+	ud, err := udiff.ToUnifiedDiff("", "", oldStr, edits, len(old)+len(new))
+	if err != nil || len(ud.Hunks) == 0 {
+		// Fallback: delete all old, insert all new
 		var ops []diffOp
 		for _, l := range old {
 			ops = append(ops, diffOp{diffDelete, l})
@@ -346,44 +358,12 @@ func diffLines(old, new []string) []diffOp {
 		return ops
 	}
 
-	// Build LCS table
-	m, n := len(old), len(new)
-	dp := make([][]int, m+1)
-	for i := range dp {
-		dp[i] = make([]int, n+1)
-	}
-	for i := 1; i <= m; i++ {
-		for j := 1; j <= n; j++ {
-			if old[i-1] == new[j-1] {
-				dp[i][j] = dp[i-1][j-1] + 1
-			} else {
-				dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-			}
-		}
-	}
-
-	// Backtrack to produce diff ops
 	var ops []diffOp
-	i, j := m, n
-	for i > 0 || j > 0 {
-		if i > 0 && j > 0 && old[i-1] == new[j-1] {
-			ops = append(ops, diffOp{diffEqual, old[i-1]})
-			i--
-			j--
-		} else if j > 0 && (i == 0 || dp[i][j-1] >= dp[i-1][j]) {
-			ops = append(ops, diffOp{diffInsert, new[j-1]})
-			j--
-		} else {
-			ops = append(ops, diffOp{diffDelete, old[i-1]})
-			i--
+	for _, h := range ud.Hunks {
+		for _, l := range h.Lines {
+			ops = append(ops, diffOp{l.Kind, strings.TrimRight(l.Content, "\n")})
 		}
 	}
-
-	// Reverse (backtracking produces ops in reverse order)
-	for l, r := 0, len(ops)-1; l < r; l, r = l+1, r-1 {
-		ops[l], ops[r] = ops[r], ops[l]
-	}
-
 	return ops
 }
 

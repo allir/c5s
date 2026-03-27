@@ -102,6 +102,7 @@ Status values: `working`, `idle`, `input` (waiting for approval), `finished` (se
 
 - Uses Chroma (transitive dep via glamour) to tokenize code in diff blocks by file extension.
 - Token colors are mapped to the active palette, matching the glamour Chroma config in `markdown.go`.
+- **Inline diff highlighting**: Adjacent delete/insert line pairs get character-level sub-diffs via `go-udiff`. Changed characters render with a brighter background (`DiffAddInlineBg`/`DiffRemoveInlineBg`) while unchanged portions keep the normal diff background.
 - Each token is rendered with its syntax fg color AND the line's diff background, avoiding ANSI reset issues.
 - Consecutive diff entries are batched for block-level tokenization (better context for the lexer).
 
@@ -128,6 +129,6 @@ make tools
 
 - Go standard project layout with `internal/`.
 - No CGO. Pure Go.
-- Direct dependencies: Bubble Tea, Lip Gloss, Glamour, Cobra, Chroma (via glamour), x/sync. Keep it minimal.
+- Direct dependencies: Bubble Tea, Lip Gloss, Glamour, Cobra, Chroma (via glamour), go-udiff, x/sync. Keep it minimal.
 - Tests live next to the code they test (`_test.go` suffix).
 - Version info injected at build time via ldflags (see Makefile).

@@ -25,213 +25,237 @@ type Palette struct {
 	Orange  string `json:"orange"`  // secondary accent
 
 	// Diff-specific (derived from core, but distinct enough to warrant naming)
-	DiffAddFg    string `json:"diff_add_fg"`
-	DiffAddBg    string `json:"diff_add_bg"`
-	DiffRemoveFg string `json:"diff_remove_fg"`
-	DiffRemoveBg string `json:"diff_remove_bg"`
+	DiffAddFg          string `json:"diff_add_fg"`
+	DiffAddBg          string `json:"diff_add_bg"`
+	DiffAddInlineBg    string `json:"diff_add_inline_bg"` // brighter bg for changed chars within added lines
+	DiffRemoveFg       string `json:"diff_remove_fg"`
+	DiffRemoveBg       string `json:"diff_remove_bg"`
+	DiffRemoveInlineBg string `json:"diff_remove_inline_bg"` // brighter bg for changed chars within removed lines
 }
 
 // Dark palettes.
 var (
 	PaletteCatppuccinMocha = Palette{
-		Fg:           "#CDD6F4", // text
-		FgDim:        "#6C7086", // overlay0
-		Bg:           "#1E1E2E", // base
-		BgAlt:        "#313244", // surface0
-		Comment:      "#6C7086", // overlay0
-		Pink:         "#F38BA8", // red
-		Cyan:         "#89DCEB", // sky
-		Green:        "#A6E3A1", // green
-		Yellow:       "#F9E2AF", // yellow
-		Purple:       "#CBA6F7", // mauve
-		Orange:       "#FAB387", // peach
-		DiffAddFg:    "#A6E3A1",
-		DiffAddBg:    "#233022",
-		DiffRemoveFg: "#F38BA8",
-		DiffRemoveBg: "#42252D",
+		Fg:                 "#CDD6F4", // text
+		FgDim:              "#6C7086", // overlay0
+		Bg:                 "#1E1E2E", // base
+		BgAlt:              "#313244", // surface0
+		Comment:            "#6C7086", // overlay0
+		Pink:               "#F38BA8", // red
+		Cyan:               "#89DCEB", // sky
+		Green:              "#A6E3A1", // green
+		Yellow:             "#F9E2AF", // yellow
+		Purple:             "#CBA6F7", // mauve
+		Orange:             "#FAB387", // peach
+		DiffAddFg:          "#A6E3A1",
+		DiffAddBg:          "#1C261B",
+		DiffAddInlineBg:    "#2D672A",
+		DiffRemoveFg:       "#F38BA8",
+		DiffRemoveBg:       "#351E24",
+		DiffRemoveInlineBg: "#742D32",
 	}
 
 	PaletteDracula = Palette{
-		Fg:           "#F8F8F2",
-		FgDim:        "#6272A4",
-		Bg:           "#282A36",
-		BgAlt:        "#44475A",
-		Comment:      "#6272A4",
-		Pink:         "#FF79C6",
-		Cyan:         "#8BE9FD",
-		Green:        "#50FA7B",
-		Yellow:       "#F1FA8C",
-		Purple:       "#BD93F9",
-		Orange:       "#FFB86C",
-		DiffAddFg:    "#50FA7B",
-		DiffAddBg:    "#0F3017",
-		DiffRemoveFg: "#FF5555",
-		DiffRemoveBg: "#421616",
+		Fg:                 "#F8F8F2",
+		FgDim:              "#6272A4",
+		Bg:                 "#282A36",
+		BgAlt:              "#44475A",
+		Comment:            "#6272A4",
+		Pink:               "#FF79C6",
+		Cyan:               "#8BE9FD",
+		Green:              "#50FA7B",
+		Yellow:             "#F1FA8C",
+		Purple:             "#BD93F9",
+		Orange:             "#FFB86C",
+		DiffAddFg:          "#50FA7B",
+		DiffAddBg:          "#0C2612",
+		DiffAddInlineBg:    "#19671F",
+		DiffRemoveFg:       "#FF5555",
+		DiffRemoveBg:       "#351212",
+		DiffRemoveInlineBg: "#741E1B",
 	}
 
 	PaletteGitHubDark = Palette{
-		Fg:           "#E6EDF3",
-		FgDim:        "#7D8590",
-		Bg:           "#0D1117",
-		BgAlt:        "#161B22",
-		Comment:      "#7D8590",
-		Pink:         "#FF7B72", // red
-		Cyan:         "#79C0FF", // blue
-		Green:        "#7EE787",
-		Yellow:       "#E3B341",
-		Purple:       "#D2A8FF",
-		Orange:       "#FFA657",
-		DiffAddFg:    "#7EE787",
-		DiffAddBg:    "#1A301C",
-		DiffRemoveFg: "#FF7B72",
-		DiffRemoveBg: "#421F1D",
+		Fg:                 "#E6EDF3",
+		FgDim:              "#7D8590",
+		Bg:                 "#0D1117",
+		BgAlt:              "#161B22",
+		Comment:            "#7D8590",
+		Pink:               "#FF7B72", // red
+		Cyan:               "#79C0FF", // blue
+		Green:              "#7EE787",
+		Yellow:             "#E3B341",
+		Purple:             "#D2A8FF",
+		Orange:             "#FFA657",
+		DiffAddFg:          "#7EE787",
+		DiffAddBg:          "#152616",
+		DiffAddInlineBg:    "#246724",
+		DiffRemoveFg:       "#FF7B72",
+		DiffRemoveBg:       "#351917",
+		DiffRemoveInlineBg: "#742722",
 	}
 
 	PaletteMolokai = Palette{
-		Fg:           "#F8F8F2",
-		FgDim:        "#90908A",
-		Bg:           "#1B1D1E",
-		BgAlt:        "#2D2E27",
-		Comment:      "#7E8E91",
-		Pink:         "#F92672",
-		Cyan:         "#66D9EF",
-		Green:        "#A6E22E",
-		Yellow:       "#E6DB74",
-		Purple:       "#AE81FF",
-		Orange:       "#FD971F",
-		DiffAddFg:    "#A6E22E",
-		DiffAddBg:    "#233009",
-		DiffRemoveFg: "#F92672",
-		DiffRemoveBg: "#420A1E",
+		Fg:                 "#F8F8F2",
+		FgDim:              "#90908A",
+		Bg:                 "#1B1D1E",
+		BgAlt:              "#2D2E27",
+		Comment:            "#7E8E91",
+		Pink:               "#F92672",
+		Cyan:               "#66D9EF",
+		Green:              "#A6E22E",
+		Yellow:             "#E6DB74",
+		Purple:             "#AE81FF",
+		Orange:             "#FD971F",
+		DiffAddFg:          "#A6E22E",
+		DiffAddBg:          "#1F3209",
+		DiffAddInlineBg:    "#2D7411",
+		DiffRemoveFg:       "#F92672",
+		DiffRemoveBg:       "#300A15",
+		DiffRemoveInlineBg: "#7E1425",
 	}
 
 	PaletteNord = Palette{
-		Fg:           "#D8DEE9", // nord4
-		FgDim:        "#4C566A", // nord3
-		Bg:           "#2E3440", // nord0
-		BgAlt:        "#3B4252", // nord1
-		Comment:      "#616E88", // brightened nord3
-		Pink:         "#BF616A", // nord11
-		Cyan:         "#88C0D0", // nord8
-		Green:        "#A3BE8C", // nord14
-		Yellow:       "#EBCB8B", // nord13
-		Purple:       "#B48EAD", // nord15
-		Orange:       "#D08770", // nord12
-		DiffAddFg:    "#A3BE8C",
-		DiffAddBg:    "#293023",
-		DiffRemoveFg: "#BF616A",
-		DiffRemoveBg: "#422124",
+		Fg:                 "#D8DEE9", // nord4
+		FgDim:              "#4C566A", // nord3
+		Bg:                 "#2E3440", // nord0
+		BgAlt:              "#3B4252", // nord1
+		Comment:            "#616E88", // brightened nord3
+		Pink:               "#BF616A", // nord11
+		Cyan:               "#88C0D0", // nord8
+		Green:              "#A3BE8C", // nord14
+		Yellow:             "#EBCB8B", // nord13
+		Purple:             "#B48EAD", // nord15
+		Orange:             "#D08770", // nord12
+		DiffAddFg:          "#A3BE8C",
+		DiffAddBg:          "#21261C",
+		DiffAddInlineBg:    "#33672B",
+		DiffRemoveFg:       "#BF616A",
+		DiffRemoveBg:       "#351A1D",
+		DiffRemoveInlineBg: "#742929",
 	}
 
 	PaletteSolarizedDark = Palette{
-		Fg:           "#839496", // base0
-		FgDim:        "#586E75", // base01
-		Bg:           "#002B36", // base03
-		BgAlt:        "#073642", // base02
-		Comment:      "#586E75", // base01
-		Pink:         "#DC322F", // red
-		Cyan:         "#2AA198", // cyan
-		Green:        "#859900", // green
-		Yellow:       "#B58900", // yellow
-		Purple:       "#6C71C4", // violet
-		Orange:       "#CB4B16", // orange
-		DiffAddFg:    "#859900",
-		DiffAddBg:    "#293000",
-		DiffRemoveFg: "#DC322F",
-		DiffRemoveBg: "#420F0E",
+		Fg:                 "#839496", // base0
+		FgDim:              "#586E75", // base01
+		Bg:                 "#002B36", // base03
+		BgAlt:              "#073642", // base02
+		Comment:            "#586E75", // base01
+		Pink:               "#DC322F", // red
+		Cyan:               "#2AA198", // cyan
+		Green:              "#859900", // green
+		Yellow:             "#B58900", // yellow
+		Purple:             "#6C71C4", // violet
+		Orange:             "#CB4B16", // orange
+		DiffAddFg:          "#859900",
+		DiffAddBg:          "#212600",
+		DiffAddInlineBg:    "#336708",
+		DiffRemoveFg:       "#DC322F",
+		DiffRemoveBg:       "#350C0B",
+		DiffRemoveInlineBg: "#741713",
 	}
 
 	PaletteTokyoNight = Palette{
-		Fg:           "#C0CAF5",
-		FgDim:        "#565F89",
-		Bg:           "#1A1B26",
-		BgAlt:        "#24283B",
-		Comment:      "#565F89",
-		Pink:         "#F7768E",
-		Cyan:         "#7DCFFF",
-		Green:        "#9ECE6A",
-		Yellow:       "#E0AF68",
-		Purple:       "#BB9AF7",
-		Orange:       "#FF9E64",
-		DiffAddFg:    "#9ECE6A",
-		DiffAddBg:    "#243018",
-		DiffRemoveFg: "#F7768E",
-		DiffRemoveBg: "#421F25",
+		Fg:                 "#C0CAF5",
+		FgDim:              "#565F89",
+		Bg:                 "#1A1B26",
+		BgAlt:              "#24283B",
+		Comment:            "#565F89",
+		Pink:               "#F7768E",
+		Cyan:               "#7DCFFF",
+		Green:              "#9ECE6A",
+		Yellow:             "#E0AF68",
+		Purple:             "#BB9AF7",
+		Orange:             "#FF9E64",
+		DiffAddFg:          "#9ECE6A",
+		DiffAddBg:          "#1D2613",
+		DiffAddInlineBg:    "#2E6720",
+		DiffRemoveFg:       "#F7768E",
+		DiffRemoveBg:       "#35191E",
+		DiffRemoveInlineBg: "#74272A",
 	}
 )
 
 // Light palettes.
 var (
 	PaletteCatppuccinLatte = Palette{
-		Fg:           "#4C4F69", // text
-		FgDim:        "#9CA0B0", // overlay0
-		Bg:           "#EFF1F5", // base
-		BgAlt:        "#E6E9EF", // mantle
-		Comment:      "#9CA0B0", // overlay0
-		Pink:         "#D20F39", // red
-		Cyan:         "#04A5E5", // sky
-		Green:        "#40A02B", // green
-		Yellow:       "#DF8E1D", // yellow
-		Purple:       "#8839EF", // mauve
-		Orange:       "#FE640B", // peach
-		DiffAddFg:    "#40A02B",
-		DiffAddBg:    "#C0E0BA",
-		DiffRemoveFg: "#D20F39",
-		DiffRemoveBg: "#F2BAC6",
+		Fg:                 "#4C4F69", // text
+		FgDim:              "#9CA0B0", // overlay0
+		Bg:                 "#EFF1F5", // base
+		BgAlt:              "#E6E9EF", // mantle
+		Comment:            "#9CA0B0", // overlay0
+		Pink:               "#D20F39", // red
+		Cyan:               "#04A5E5", // sky
+		Green:              "#40A02B", // green
+		Yellow:             "#DF8E1D", // yellow
+		Purple:             "#8839EF", // mauve
+		Orange:             "#FE640B", // peach
+		DiffAddFg:          "#40A02B",
+		DiffAddBg:          "#C0E0BA",
+		DiffAddInlineBg:    "#ACDBA6",
+		DiffRemoveFg:       "#D20F39",
+		DiffRemoveBg:       "#F2BAC6",
+		DiffRemoveInlineBg: "#ED97A3",
 	}
 
 	PaletteGitHubLight = Palette{
-		Fg:           "#1F2328",
-		FgDim:        "#656D76",
-		Bg:           "#FFFFFF",
-		BgAlt:        "#F6F8FA",
-		Comment:      "#656D76",
-		Pink:         "#CF222E", // red
-		Cyan:         "#0969DA", // blue
-		Green:        "#116329",
-		Yellow:       "#9A6700",
-		Purple:       "#8250DF",
-		Orange:       "#BC4C00",
-		DiffAddFg:    "#116329",
-		DiffAddBg:    "#DAFBE1", // official GitHub diff green
-		DiffRemoveFg: "#CF222E",
-		DiffRemoveBg: "#FFEBE9", // official GitHub diff red
+		Fg:                 "#1F2328",
+		FgDim:              "#656D76",
+		Bg:                 "#FFFFFF",
+		BgAlt:              "#F6F8FA",
+		Comment:            "#656D76",
+		Pink:               "#CF222E", // red
+		Cyan:               "#0969DA", // blue
+		Green:              "#116329",
+		Yellow:             "#9A6700",
+		Purple:             "#8250DF",
+		Orange:             "#BC4C00",
+		DiffAddFg:          "#116329",
+		DiffAddBg:          "#DAFBE1", // official GitHub diff green
+		DiffAddInlineBg:    "#C6F6CD",
+		DiffRemoveFg:       "#CF222E",
+		DiffRemoveBg:       "#FFEBE9", // official GitHub diff red
+		DiffRemoveInlineBg: "#FAC8C6",
 	}
 
 	PaletteSolarizedLight = Palette{
-		Fg:           "#657B83", // base00
-		FgDim:        "#93A1A1", // base1
-		Bg:           "#FDF6E3", // base3
-		BgAlt:        "#EEE8D5", // base2
-		Comment:      "#93A1A1", // base1
-		Pink:         "#DC322F", // red
-		Cyan:         "#2AA198", // cyan
-		Green:        "#859900", // green
-		Yellow:       "#B58900", // yellow
-		Purple:       "#6C71C4", // violet
-		Orange:       "#CB4B16", // orange
-		DiffAddFg:    "#859900",
-		DiffAddBg:    "#DDE3BA",
-		DiffRemoveFg: "#DC322F",
-		DiffRemoveBg: "#F3BABA",
+		Fg:                 "#657B83", // base00
+		FgDim:              "#93A1A1", // base1
+		Bg:                 "#FDF6E3", // base3
+		BgAlt:              "#EEE8D5", // base2
+		Comment:            "#93A1A1", // base1
+		Pink:               "#DC322F", // red
+		Cyan:               "#2AA198", // cyan
+		Green:              "#859900", // green
+		Yellow:             "#B58900", // yellow
+		Purple:             "#6C71C4", // violet
+		Orange:             "#CB4B16", // orange
+		DiffAddFg:          "#859900",
+		DiffAddBg:          "#DDE3BA",
+		DiffAddInlineBg:    "#C9DEA6",
+		DiffRemoveFg:       "#DC322F",
+		DiffRemoveBg:       "#F3BABA",
+		DiffRemoveInlineBg: "#EE9797",
 	}
 
 	PaletteTokyoNightDay = Palette{
-		Fg:           "#3760BF",
-		FgDim:        "#8990B3",
-		Bg:           "#E1E2E7",
-		BgAlt:        "#D0D5E3",
-		Comment:      "#848CB5",
-		Pink:         "#F52A65",
-		Cyan:         "#007197",
-		Green:        "#587539",
-		Yellow:       "#8C6C3E",
-		Purple:       "#7847BD",
-		Orange:       "#B15C00",
-		DiffAddFg:    "#587539",
-		DiffAddBg:    "#C4CEBA",
-		DiffRemoveFg: "#F52A65",
-		DiffRemoveBg: "#FBBACD",
+		Fg:                 "#3760BF",
+		FgDim:              "#8990B3",
+		Bg:                 "#E1E2E7",
+		BgAlt:              "#D0D5E3",
+		Comment:            "#848CB5",
+		Pink:               "#F52A65",
+		Cyan:               "#007197",
+		Green:              "#587539",
+		Yellow:             "#8C6C3E",
+		Purple:             "#7847BD",
+		Orange:             "#B15C00",
+		DiffAddFg:          "#587539",
+		DiffAddBg:          "#C4CEBA",
+		DiffAddInlineBg:    "#B0C9A6",
+		DiffRemoveFg:       "#F52A65",
+		DiffRemoveBg:       "#FBBACD",
+		DiffRemoveInlineBg: "#F697AA",
 	}
 )
 
