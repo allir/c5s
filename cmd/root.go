@@ -15,6 +15,7 @@ import (
 
 	"github.com/allir/c5s/internal/claude"
 	"github.com/allir/c5s/internal/tui"
+	"github.com/allir/c5s/internal/tui/theme"
 	"github.com/allir/c5s/internal/version"
 )
 
@@ -48,6 +49,17 @@ func Execute() {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
+	// Load saved theme preference
+	cfg := claude.LoadConfig()
+	activeTheme := "Molokai" // default
+	for _, entry := range theme.Palettes {
+		if entry.Name == cfg.Theme {
+			theme.ApplyPalette(entry.Palette)
+			activeTheme = entry.Name
+			break
+		}
+	}
+
 	configDir := claude.DefaultConfigDir()
 	settingsPath := filepath.Join(configDir, "settings.json")
 
@@ -73,7 +85,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		cleanup()
 	}()
 
-	m := tui.NewModel(configDir, refreshInterval)
+	m := tui.NewModel(configDir, refreshInterval, activeTheme)
 	p := tea.NewProgram(m)
 
 	_, err := p.Run()

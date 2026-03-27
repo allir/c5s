@@ -20,6 +20,7 @@ func sessionsStatusBar(width int) string {
 		{"a", "approve"},
 		{"x", "deny"},
 		{"enter", "details"},
+		{"s", "settings"},
 		{"?", "help"},
 	})
 }
@@ -32,6 +33,15 @@ func detailStatusBar(width int) string {
 		{"a", "approve"},
 		{"x", "deny"},
 		{"?", "help"},
+	})
+}
+
+// settingsStatusBar renders the status bar for the settings view.
+func settingsStatusBar(width int) string {
+	return renderStatusBar(width, []keyHint{
+		{"esc", "back"},
+		{"↑/↓", "navigate"},
+		{"enter", "select"},
 	})
 }
 

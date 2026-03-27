@@ -26,6 +26,7 @@ type viewState int
 const (
 	viewSessions viewState = iota
 	viewDetail
+	viewSettings
 )
 
 // Messages
@@ -48,18 +49,21 @@ type Model struct {
 	view            viewState
 	sessions        views.SessionsModel
 	detail          *views.DetailModel
+	settings        *views.SettingsModel
 	keys            KeyMap
 	configDir       string
+	activeTheme     string // current theme name (for config persistence)
 	refreshInterval time.Duration
 	err             error
 }
 
 // NewModel creates a new root model.
-func NewModel(configDir string, refreshInterval time.Duration) Model {
+func NewModel(configDir string, refreshInterval time.Duration, activeTheme string) Model {
 	return Model{
 		sessions:        views.NewSessionsModel(),
 		keys:            DefaultKeyMap(),
 		configDir:       configDir,
+		activeTheme:     activeTheme,
 		refreshInterval: refreshInterval,
 	}
 }
@@ -126,6 +130,8 @@ func (m Model) View() tea.View {
 
 	if m.width == 0 {
 		content = "Starting c5s..."
+	} else if m.view == viewSettings && m.settings != nil {
+		content = m.renderSettingsView()
 	} else if m.view == viewDetail && m.detail != nil {
 		content = m.renderDetailView()
 	} else {
@@ -199,8 +205,47 @@ func (m Model) renderDetailView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
+func (m Model) renderSettingsView() string {
+	header := headerView(m.sessions.SessionCount(), m.width)
+	separator := theme.SeparatorLine(m.width)
+	statusBar := settingsStatusBar(m.width)
+
+	contentHeight := max(m.height-chromeHeight, 1)
+	m.settings.SetSize(m.width, contentHeight)
+	body := m.settings.View()
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, separator, body, statusBar)
+}
+
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Settings view
+	if m.view == viewSettings && m.settings != nil {
+		switch {
+		case matches(key, m.keys.Back):
+			m.view = viewSessions
+			m.settings = nil
+		case matches(key, m.keys.Quit):
+			return m, tea.Quit
+		case matches(key, m.keys.Up):
+			m.settings.MoveUp()
+		case matches(key, m.keys.Down):
+			m.settings.MoveDown()
+		case matches(key, m.keys.Select):
+			name, palette := m.settings.SelectedTheme()
+			theme.ApplyPalette(palette)
+			m.activeTheme = name
+			if m.detail != nil {
+				m.detail.InvalidateCache()
+			}
+			// Save config asynchronously
+			go func() { _ = claude.SaveConfig(claude.Config{Theme: name}) }()
+			m.view = viewSessions
+			m.settings = nil
+		}
+		return m, nil
+	}
 
 	// Detail view with input mode: input box captures most keys
 	if m.view == viewDetail && m.detail != nil && m.detail.InputMode() {
@@ -304,6 +349,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case matches(key, m.keys.Help):
 		// Placeholder — will show help overlay
+	case matches(key, m.keys.Settings):
+		settings := views.NewSettingsModel(m.activeTheme)
+		m.settings = &settings
+		m.view = viewSettings
 	case matches(key, m.keys.Approve):
 		return m, m.writeApproval(claude.ApprovalOption{Label: "Yes", Allow: true})
 	case matches(key, m.keys.Deny):

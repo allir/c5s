@@ -4,31 +4,33 @@ import "slices"
 
 // KeyMap defines the global key bindings for the application.
 type KeyMap struct {
-	Quit    []string
-	Up      []string
-	Down    []string
-	PageUp  []string
-	PageDn  []string
-	Select  []string
-	Back    []string
-	Help    []string
-	Approve []string
-	Deny    []string
+	Quit     []string
+	Up       []string
+	Down     []string
+	PageUp   []string
+	PageDn   []string
+	Select   []string
+	Back     []string
+	Help     []string
+	Approve  []string
+	Deny     []string
+	Settings []string
 }
 
 // DefaultKeyMap returns the default key bindings.
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Quit:    []string{"q", "ctrl+c"},
-		Up:      []string{"up"},
-		Down:    []string{"down"},
-		PageUp:  []string{"pgup"},
-		PageDn:  []string{"pgdown"},
-		Select:  []string{"enter"},
-		Back:    []string{"escape", "esc"},
-		Help:    []string{"?"},
-		Approve: []string{"a"},
-		Deny:    []string{"x"},
+		Quit:     []string{"q", "ctrl+c"},
+		Up:       []string{"up"},
+		Down:     []string{"down"},
+		PageUp:   []string{"pgup"},
+		PageDn:   []string{"pgdown"},
+		Select:   []string{"enter"},
+		Back:     []string{"escape", "esc"},
+		Help:     []string{"?"},
+		Approve:  []string{"a"},
+		Deny:     []string{"x"},
+		Settings: []string{"s"},
 	}
 }
 

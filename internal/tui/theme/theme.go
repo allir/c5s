@@ -1,7 +1,7 @@
-// Package theme defines the color palette and styles for the c5s TUI.
 package theme
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -9,54 +9,97 @@ import (
 	"github.com/allir/c5s/internal/claude"
 )
 
-// Colors used throughout the TUI.
+// Semantic color aliases — derived from the active palette.
 var (
-	ColorPrimary   = lipgloss.Color("#7C3AED") // purple
-	ColorSecondary = lipgloss.Color("#06B6D4") // cyan
-	ColorMuted     = lipgloss.Color("#6B7280") // gray
-	ColorSuccess   = lipgloss.Color("#10B981") // green
-	ColorWarning   = lipgloss.Color("#F59E0B") // amber
-	ColorDanger    = lipgloss.Color("#EF4444") // red
-	ColorText      = lipgloss.Color("#E5E7EB") // light gray
-	ColorDimText   = lipgloss.Color("#9CA3AF") // dim gray
-	ColorBg        = lipgloss.Color("#111827") // dark bg
-	ColorBgAlt     = lipgloss.Color("#1F2937") // slightly lighter bg
+	ColorPrimary   color.Color
+	ColorSecondary color.Color
+	ColorMuted     color.Color
+	ColorSuccess   color.Color
+	ColorWarning   color.Color
+	ColorDanger    color.Color
+	ColorText      color.Color
+	ColorDimText   color.Color
+	ColorBg        color.Color
+	ColorBgAlt     color.Color
+
+	ColorDiffAddFg    color.Color
+	ColorDiffAddBg    color.Color
+	ColorDiffRemoveFg color.Color
+	ColorDiffRemoveBg color.Color
 )
 
-// Layout styles.
+// Layout styles — rebuilt on palette change.
 var (
+	StyleHeader           lipgloss.Style
+	StyleHeaderCount      lipgloss.Style
+	StyleStatusBar        lipgloss.Style
+	StyleStatusBarKey     lipgloss.Style
+	StyleTableHeader      lipgloss.Style
+	StyleTableRow         lipgloss.Style
+	StyleTableRowSelected lipgloss.Style
+	StyleTableCell        lipgloss.Style
+)
+
+func init() {
+	ApplyPalette(P)
+}
+
+// ApplyPalette sets the active palette and rebuilds all derived colors and styles.
+func ApplyPalette(p Palette) {
+	P = p
+
+	ColorPrimary = lipgloss.Color(p.Purple)
+	ColorSecondary = lipgloss.Color(p.Cyan)
+	ColorMuted = lipgloss.Color(p.Comment)
+	ColorSuccess = lipgloss.Color(p.Green)
+	ColorWarning = lipgloss.Color(p.Yellow)
+	ColorDanger = lipgloss.Color(p.Pink)
+	ColorText = lipgloss.Color(p.Fg)
+	ColorDimText = lipgloss.Color(p.FgDim)
+	ColorBg = lipgloss.Color(p.Bg)
+	ColorBgAlt = lipgloss.Color(p.BgAlt)
+
+	ColorDiffAddFg = lipgloss.Color(p.DiffAddFg)
+	ColorDiffAddBg = lipgloss.Color(p.DiffAddBg)
+	ColorDiffRemoveFg = lipgloss.Color(p.DiffRemoveFg)
+	ColorDiffRemoveBg = lipgloss.Color(p.DiffRemoveBg)
+
+	applyStyles()
+}
+
+func applyStyles() {
 	StyleHeader = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary).
-			PaddingLeft(1)
+		Bold(true).
+		Foreground(ColorPrimary).
+		PaddingLeft(1)
 
 	StyleHeaderCount = lipgloss.NewStyle().
-				Foreground(ColorSecondary).
-				Bold(true)
+		Foreground(ColorSecondary).
+		Bold(true)
 
 	StyleStatusBar = lipgloss.NewStyle().
-			Foreground(ColorDimText).
-			PaddingLeft(1)
+		Foreground(ColorDimText).
+		PaddingLeft(1)
 
 	StyleStatusBarKey = lipgloss.NewStyle().
-				Foreground(ColorSecondary).
-				Bold(true)
+		Foreground(ColorSecondary).
+		Bold(true)
 
 	StyleTableHeader = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorText)
+		Bold(true).
+		Foreground(ColorText)
 
 	StyleTableRow = lipgloss.NewStyle().
-			Foreground(ColorDimText)
+		Foreground(ColorDimText)
 
 	StyleTableRowSelected = lipgloss.NewStyle().
-				Foreground(ColorText).
-				Background(ColorBgAlt).
-				Bold(true)
+		Foreground(ColorText).
+		Background(ColorBgAlt).
+		Bold(true)
 
 	StyleTableCell = lipgloss.NewStyle().
-			PaddingRight(2)
-)
+		PaddingRight(2)
+}
 
 // SeparatorLine renders a horizontal separator line at the given width.
 func SeparatorLine(width int) string {

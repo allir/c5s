@@ -146,6 +146,13 @@ func (m *DetailModel) Refresh() {
 	m.loadTranscript()
 }
 
+// InvalidateCache clears the rendered line cache and markdown renderer,
+// forcing a full rebuild on the next render (e.g., after a theme change).
+func (m *DetailModel) InvalidateCache() {
+	m.lines = nil
+	m.mdCache = nil
+}
+
 // ScrollUp scrolls the view up.
 func (m *DetailModel) ScrollUp() {
 	m.scroll = min(m.scroll+3, m.maxScroll())
@@ -443,14 +450,14 @@ func (m *DetailModel) renderLines() []string {
 				switch e.Content[0] {
 				case '-':
 					styled := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("#E06060")).
-						Background(lipgloss.Color("#2A1215")).
+						Foreground(theme.ColorDiffRemoveFg).
+						Background(theme.ColorDiffRemoveBg).
 						Render("  " + e.Content)
 					lines = append(lines, styled)
 				case '+':
 					styled := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("#60C060")).
-						Background(lipgloss.Color("#122A15")).
+						Foreground(theme.ColorDiffAddFg).
+						Background(theme.ColorDiffAddBg).
 						Render("  " + e.Content)
 					lines = append(lines, styled)
 				default:
@@ -479,7 +486,7 @@ func (m *DetailModel) renderLines() []string {
 func (m *DetailModel) mdRenderer() *glamour.TermRenderer {
 	if m.mdCache == nil || m.mdWidth != m.width {
 		r, err := glamour.NewTermRenderer(
-			glamour.WithStyles(theme.MonokaiStyleConfig),
+			glamour.WithStyles(theme.MarkdownStyleConfig()),
 			glamour.WithWordWrap(max(m.width-4, 20)),
 		)
 		if err == nil {
