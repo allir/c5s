@@ -27,6 +27,7 @@ const (
 	viewSessions viewState = iota
 	viewDetail
 	viewSettings
+	viewDiffDebug
 )
 
 // Messages
@@ -50,6 +51,7 @@ type Model struct {
 	sessions        views.SessionsModel
 	detail          *views.DetailModel
 	settings        *views.SettingsModel
+	diffDebug       *views.DiffDebugModel
 	keys            KeyMap
 	configDir       string
 	activeTheme     string // current theme name (for config persistence)
@@ -130,6 +132,9 @@ func (m Model) View() tea.View {
 
 	if m.width == 0 {
 		content = "Starting c5s..."
+	} else if m.view == viewDiffDebug && m.diffDebug != nil {
+		m.diffDebug.SetSize(m.width, m.height)
+		content = m.diffDebug.View()
 	} else if m.view == viewSettings && m.settings != nil {
 		content = m.renderSettingsView()
 	} else if m.view == viewDetail && m.detail != nil {
@@ -145,8 +150,14 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) renderSessionsView() string {
-	header := headerView(m.sessions.SessionCount(), m.width)
-	statusBar := sessionsStatusBar(m.width)
+	header := headerView(m.sessions.SessionCount(), m.width, []keyHint{
+		{"q", "quit"},
+		{"a", "approve"},
+		{"x", "deny"},
+		{"enter", "details"},
+		{"s", "settings"},
+		{"?", "help"},
+	})
 	approvalLine := m.sessions.ApprovalLine(m.width)
 
 	extra := 0
@@ -163,7 +174,6 @@ func (m Model) renderSessionsView() string {
 	if approvalLine != "" {
 		parts = append(parts, approvalLine)
 	}
-	parts = append(parts, statusBar)
 
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
@@ -206,7 +216,7 @@ func (m Model) renderDetailView() string {
 }
 
 func (m Model) renderSettingsView() string {
-	header := headerView(m.sessions.SessionCount(), m.width)
+	header := headerView(m.sessions.SessionCount(), m.width, nil)
 	separator := theme.SeparatorLine(m.width)
 	statusBar := settingsStatusBar(m.width)
 
@@ -219,6 +229,20 @@ func (m Model) renderSettingsView() string {
 
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Diff debug view
+	if m.view == viewDiffDebug && m.diffDebug != nil {
+		switch {
+		case matches(key, m.keys.Back), matches(key, m.keys.Quit):
+			m.view = viewSessions
+			m.diffDebug = nil
+		case matches(key, m.keys.Up):
+			m.diffDebug.ScrollUp()
+		case matches(key, m.keys.Down):
+			m.diffDebug.ScrollDown()
+		}
+		return m, nil
+	}
 
 	// Settings view
 	if m.view == viewSettings && m.settings != nil {
@@ -236,6 +260,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			name, palette := m.settings.SelectedTheme()
 			theme.ApplyPalette(palette)
 			m.activeTheme = name
+			m.settings.SetActive(m.settings.Cursor())
 			if m.detail != nil {
 				m.detail.InvalidateCache()
 			}
@@ -353,6 +378,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		settings := views.NewSettingsModel(m.activeTheme)
 		m.settings = &settings
 		m.view = viewSettings
+	case key == "d":
+		dd := views.NewDiffDebugModel()
+		m.diffDebug = &dd
+		m.view = viewDiffDebug
 	case matches(key, m.keys.Approve):
 		return m, m.writeApproval(claude.ApprovalOption{Label: "Yes", Allow: true})
 	case matches(key, m.keys.Deny):

@@ -32,7 +32,7 @@ func MarkdownStyleConfig() ansi.StyleConfig {
 		Heading: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
 				BlockSuffix: "\n",
-				Color:       ptr(P.Pink),
+				Color:       ptr(P.Red),
 				Bold:        ptr(true),
 			},
 		},
@@ -64,7 +64,7 @@ func MarkdownStyleConfig() ansi.StyleConfig {
 		},
 		Enumeration: ansi.StylePrimitive{
 			BlockPrefix: ". ",
-			Color:       ptr(P.Purple),
+			Color:       ptr(P.Magenta),
 		},
 		Task: ansi.StyleTask{
 			StylePrimitive: ansi.StylePrimitive{},
@@ -72,14 +72,14 @@ func MarkdownStyleConfig() ansi.StyleConfig {
 			Unticked:       "[ ] ",
 		},
 		Link: ansi.StylePrimitive{
-			Color:     ptr(P.Cyan),
+			Color:     ptr(P.Blue),
 			Underline: ptr(true),
 		},
 		LinkText: ansi.StylePrimitive{
 			Color: ptr(P.Green),
 		},
 		Image: ansi.StylePrimitive{
-			Color:     ptr(P.Cyan),
+			Color:     ptr(P.Blue),
 			Underline: ptr(true),
 		},
 		ImageText: ansi.StylePrimitive{
@@ -88,7 +88,7 @@ func MarkdownStyleConfig() ansi.StyleConfig {
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Color: ptr(P.Cyan),
+				Color: ptr(P.Blue),
 			},
 		},
 		CodeBlock: ansi.StyleCodeBlock{
@@ -100,27 +100,27 @@ func MarkdownStyleConfig() ansi.StyleConfig {
 			},
 			Chroma: &ansi.Chroma{
 				Text:                ansi.StylePrimitive{Color: ptr(P.Fg)},
-				Error:               ansi.StylePrimitive{Color: ptr(P.Fg), BackgroundColor: ptr(P.Pink)},
+				Error:               ansi.StylePrimitive{Color: ptr(P.Fg), BackgroundColor: ptr(P.Red)},
 				Comment:             ansi.StylePrimitive{Color: ptr(P.Comment)},
-				CommentPreproc:      ansi.StylePrimitive{Color: ptr(P.Cyan)},
-				Keyword:             ansi.StylePrimitive{Color: ptr(P.Pink)},
-				KeywordReserved:     ansi.StylePrimitive{Color: ptr(P.Pink)},
-				KeywordNamespace:    ansi.StylePrimitive{Color: ptr(P.Pink)},
-				KeywordType:         ansi.StylePrimitive{Color: ptr(P.Cyan)},
-				Operator:            ansi.StylePrimitive{Color: ptr(P.Pink)},
+				CommentPreproc:      ansi.StylePrimitive{Color: ptr(P.Blue)},
+				Keyword:             ansi.StylePrimitive{Color: ptr(P.Red)},
+				KeywordReserved:     ansi.StylePrimitive{Color: ptr(P.Red)},
+				KeywordNamespace:    ansi.StylePrimitive{Color: ptr(P.Red)},
+				KeywordType:         ansi.StylePrimitive{Color: ptr(P.Blue)},
+				Operator:            ansi.StylePrimitive{Color: ptr(P.Red)},
 				Punctuation:         ansi.StylePrimitive{Color: ptr(P.Fg)},
 				Name:                ansi.StylePrimitive{Color: ptr(P.Green)},
-				NameConstant:        ansi.StylePrimitive{Color: ptr(P.Purple)},
-				NameBuiltin:         ansi.StylePrimitive{Color: ptr(P.Cyan)},
-				NameTag:             ansi.StylePrimitive{Color: ptr(P.Pink)},
+				NameConstant:        ansi.StylePrimitive{Color: ptr(P.Magenta)},
+				NameBuiltin:         ansi.StylePrimitive{Color: ptr(P.Blue)},
+				NameTag:             ansi.StylePrimitive{Color: ptr(P.Red)},
 				NameAttribute:       ansi.StylePrimitive{Color: ptr(P.Green)},
 				NameClass:           ansi.StylePrimitive{Color: ptr(P.Green)},
 				NameDecorator:       ansi.StylePrimitive{Color: ptr(P.Green)},
 				NameFunction:        ansi.StylePrimitive{Color: ptr(P.Green)},
-				LiteralNumber:       ansi.StylePrimitive{Color: ptr(P.Purple)},
+				LiteralNumber:       ansi.StylePrimitive{Color: ptr(P.Magenta)},
 				LiteralString:       ansi.StylePrimitive{Color: ptr(P.Yellow)},
-				LiteralStringEscape: ansi.StylePrimitive{Color: ptr(P.Purple)},
-				GenericDeleted:      ansi.StylePrimitive{Color: ptr(P.Pink)},
+				LiteralStringEscape: ansi.StylePrimitive{Color: ptr(P.Magenta)},
+				GenericDeleted:      ansi.StylePrimitive{Color: ptr(P.Red)},
 				GenericEmph:         ansi.StylePrimitive{Italic: ptr(true)},
 				GenericInserted:     ansi.StylePrimitive{Color: ptr(P.Green)},
 				GenericStrong:       ansi.StylePrimitive{Bold: ptr(true)},

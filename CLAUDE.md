@@ -90,9 +90,9 @@ Status values: `working`, `idle`, `input` (waiting for approval), `finished` (se
 ### Theme System (`internal/tui/theme/`)
 
 - **Palette**: raw hex color values for a complete color scheme. Fields have JSON tags for user theme files.
-- **Theme**: pairs a name with a palette. Built-in themes are package-level vars (`ThemeMolokai`, `ThemeDracula`, etc.).
+- **Theme**: pairs a name with a palette. Built-in themes are package-level vars (`ThemeMolokai`, `ThemeNord`, etc.).
 - **`ApplyPalette()`**: rebuilds all derived `Color*` vars and `Style*` vars at runtime for instant theme switching.
-- **Built-in themes** (7 dark, 4 light): Molokai (default), Catppuccin Mocha, Dracula, GitHub Dark, Nord, Solarized Dark, Tokyo Night, Catppuccin Latte, GitHub Light, Solarized Light, Tokyo Night Day.
+- **Built-in themes** (6 dark, 6 light): Molokai (default), Catppuccin Mocha, GitHub Dark, Nord, Solarized Dark, Tokyo Night, Catppuccin Latte, GitHub Light, Nord Light, One Light, Solarized Light, Tokyo Night Light.
 - **User themes**: JSON files in `~/.config/c5s/themes/` are loaded at startup via `LoadUserThemes()`. Supports both full `{"name": "...", "palette": {...}}` and bare palette formats.
 - **Settings view** (`views/settings.go`): press `s` to open, shows themes grouped by dark/light (auto-detected from bg luminance), with color swatches.
 - **Config persistence** (`claude/config.go`): theme selection saved to `~/.config/c5s/config.json`.

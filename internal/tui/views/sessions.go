@@ -76,7 +76,7 @@ type column struct {
 func (m *SessionsModel) View() string {
 	if len(m.sessions) == 0 {
 		empty := lipgloss.NewStyle().
-			Foreground(theme.ColorDimText).
+			Foreground(theme.ColorFgAlt).
 			Padding(2, 0).
 			Width(m.width).
 			Align(lipgloss.Center).
@@ -109,14 +109,18 @@ func (m *SessionsModel) View() string {
 	rows := make([]string, 0, visibleRows)
 	for i := scrollOffset; i < len(m.sessions) && i < scrollOffset+visibleRows; i++ {
 		s := m.sessions[i]
-		rowData := m.rowData(i, s, columnWidth(cols, "SUMMARY"))
+		selected := i == m.cursor
+		rowData := m.rowData(i, s, cols, selected)
 
 		cells := make([]string, len(cols))
 		for ci, c := range cols {
 			style := theme.StyleTableCell.Width(c.width)
+			if selected {
+				style = style.Background(theme.ColorBgAlt)
+			}
 			content := rowData[ci]
 
-			if i == m.cursor {
+			if selected {
 				content = theme.StyleTableRowSelected.Render(content)
 			} else {
 				content = theme.StyleTableRow.Render(content)
@@ -126,8 +130,8 @@ func (m *SessionsModel) View() string {
 		}
 
 		row := lipgloss.JoinHorizontal(lipgloss.Top, cells...)
-		if i == m.cursor {
-			row = lipgloss.NewStyle().Background(theme.ColorBgAlt).Width(m.width).Render(row)
+		if selected {
+			row = lipgloss.NewStyle().Width(m.width).Background(theme.ColorBgAlt).Render(row)
 		}
 		rows = append(rows, row)
 	}
@@ -136,17 +140,19 @@ func (m *SessionsModel) View() string {
 }
 
 func (m *SessionsModel) columns() []column {
-	fixed := 4 + 8 + 12 + 10 + 12 // #, pid, status, activity, branch
-	remaining := max(m.width-fixed, 20)
+	fixed := 4 + 8 + 12 + 10 // #, pid, status, activity
+	remaining := max(m.width-fixed, 30)
 
-	projectW := min(remaining*30/100, 20)
-	summaryW := max(remaining-projectW, 10)
+	// Scale flexible columns proportionally
+	projectW := remaining * 20 / 100
+	branchW := remaining * 12 / 100
+	summaryW := remaining - projectW - branchW
 
 	return []column{
 		{"#", 4},
 		{"PID", 8},
-		{"PROJECT", max(projectW, 8)},
-		{"BRANCH", 12},
+		{"PROJECT", max(projectW, 10)},
+		{"BRANCH", max(branchW, 8)},
 		{"STATUS", 12},
 		{"SUMMARY", max(summaryW, 10)},
 		{"ACTIVITY", 10},
@@ -174,24 +180,32 @@ func (m *SessionsModel) ApprovalLine(width int) string {
 	summary := claude.SummarizeToolInput(a.ToolName, a.ToolInput)
 	label := lipgloss.NewStyle().Foreground(theme.ColorWarning).Bold(true).Render("⚠ " + a.ToolName + ":")
 	detail := lipgloss.NewStyle().Foreground(theme.ColorText).Render(" " + summary)
-	hint := lipgloss.NewStyle().Foreground(theme.ColorDimText).Render("  (a:approve  x:deny)")
+	hint := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("  (a:approve  x:deny)")
 
 	line := label + detail + hint
 	return lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(line)
 }
 
-func (m *SessionsModel) rowData(idx int, s claude.Session, summaryWidth int) []string {
+func (m *SessionsModel) rowData(idx int, s claude.Session, cols []column, selected bool) []string {
 	pid := fmt.Sprintf("%d", s.PID)
 
-	branch := claude.Truncate(s.GitBranch, 10)
-	summary := claude.Truncate(s.Summary, max(summaryWidth-2, 0))
+	branch := claude.Truncate(s.GitBranch, max(columnWidth(cols, "BRANCH")-2, 4))
+	project := claude.Truncate(s.Project, max(columnWidth(cols, "PROJECT")-2, 4))
+	summary := claude.Truncate(s.Summary, max(columnWidth(cols, "SUMMARY")-2, 0))
+
+	var status string
+	if selected {
+		status = theme.StatusIndicator(s.Status, theme.ColorBgAlt)
+	} else {
+		status = theme.StatusIndicator(s.Status)
+	}
 
 	return []string{
 		fmt.Sprintf("%d", idx+1),
 		pid,
-		s.Project,
+		project,
 		branch,
-		theme.StatusIndicator(s.Status),
+		status,
 		summary,
 		relativeTime(s.LastModified),
 	}

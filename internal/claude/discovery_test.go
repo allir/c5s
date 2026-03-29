@@ -52,9 +52,9 @@ func TestExtractTextContent(t *testing.T) {
 			want:    "hello world",
 		},
 		{
-			name:    "long string truncated",
+			name:    "long string not truncated under limit",
 			content: "this is a very long string that definitely exceeds sixty characters and should be truncated",
-			want:    "this is a very long string that definitely exceeds sixty ...",
+			want:    "this is a very long string that definitely exceeds sixty characters and should be truncated",
 		},
 		{
 			name: "content block array with text",

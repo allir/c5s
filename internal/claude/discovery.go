@@ -38,8 +38,8 @@ const tailReadSize = 512 * 1024
 const maxPeekLines = 10
 
 // maxSummaryLen is the maximum character length for session summaries
-// extracted from user messages.
-const maxSummaryLen = 60
+// extracted from user messages. Generous limit — the view truncates to fit.
+const maxSummaryLen = 200
 
 // DefaultConfigDir returns the default Claude config directory,
 // respecting CLAUDE_CONFIG_DIR if set.

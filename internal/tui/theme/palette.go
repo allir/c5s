@@ -2,283 +2,374 @@
 package theme
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
 // Palette defines a complete color scheme. All hex values are strings so they
 // can be consumed by both lipgloss (via lipgloss.Color) and glamour (via *string).
+// DiffPalette defines colors for diff rendering (add/remove backgrounds and inline highlights).
+type DiffPalette struct {
+	AddFg          string `json:"add_fg"`
+	AddBg          string `json:"add_bg"`
+	AddInlineBg    string `json:"add_inline_bg"`
+	RemoveFg       string `json:"remove_fg"`
+	RemoveBg       string `json:"remove_bg"`
+	RemoveInlineBg string `json:"remove_inline_bg"`
+}
+
+// Palette defines a color scheme. Accent color names are ANSI-inspired slot names —
+// themes are free to assign any hex value to any slot.
 type Palette struct {
-	// Core colors
+	// Core shades
 	Fg      string `json:"fg"`      // primary foreground
-	FgDim   string `json:"fg_dim"`  // dimmed foreground
+	FgAlt   string `json:"fg_alt"`  // alternate/dimmed foreground
 	Bg      string `json:"bg"`      // primary background
 	BgAlt   string `json:"bg_alt"`  // alternate/highlight background
-	Comment string `json:"comment"` // muted/comment text
-	Pink    string `json:"pink"`    // keywords, danger, headings
-	Cyan    string `json:"cyan"`    // secondary accent, links, types
-	Green   string `json:"green"`   // success, names, insertions
-	Yellow  string `json:"yellow"`  // warnings, strings
-	Purple  string `json:"purple"`  // constants, numbers, primary accent
-	Orange  string `json:"orange"`  // secondary accent
+	Comment string `json:"comment"` // comments, muted text
 
-	// Diff-specific (derived from core, but distinct enough to warrant naming)
-	DiffAddFg          string `json:"diff_add_fg"`
-	DiffAddBg          string `json:"diff_add_bg"`
-	DiffAddInlineBg    string `json:"diff_add_inline_bg"` // brighter bg for changed chars within added lines
-	DiffRemoveFg       string `json:"diff_remove_fg"`
-	DiffRemoveBg       string `json:"diff_remove_bg"`
-	DiffRemoveInlineBg string `json:"diff_remove_inline_bg"` // brighter bg for changed chars within removed lines
+	// Accent colors (ANSI-inspired)
+	Red     string `json:"red"`
+	Orange  string `json:"orange"`
+	Yellow  string `json:"yellow"`
+	Green   string `json:"green"`
+	Cyan    string `json:"cyan"`
+	Blue    string `json:"blue"`
+	Magenta string `json:"magenta"`
+	Brown   string `json:"brown"`
+
+	// Diff rendering colors
+	Diff DiffPalette `json:"diff"`
 }
 
 // Dark palettes.
 var (
 	PaletteCatppuccinMocha = Palette{
-		Fg:                 "#CDD6F4", // text
-		FgDim:              "#6C7086", // overlay0
-		Bg:                 "#1E1E2E", // base
-		BgAlt:              "#313244", // surface0
-		Comment:            "#6C7086", // overlay0
-		Pink:               "#F38BA8", // red
-		Cyan:               "#89DCEB", // sky
-		Green:              "#A6E3A1", // green
-		Yellow:             "#F9E2AF", // yellow
-		Purple:             "#CBA6F7", // mauve
-		Orange:             "#FAB387", // peach
-		DiffAddFg:          "#A6E3A1",
-		DiffAddBg:          "#1C261B",
-		DiffAddInlineBg:    "#2D672A",
-		DiffRemoveFg:       "#F38BA8",
-		DiffRemoveBg:       "#351E24",
-		DiffRemoveInlineBg: "#742D32",
-	}
-
-	PaletteDracula = Palette{
-		Fg:                 "#F8F8F2",
-		FgDim:              "#6272A4",
-		Bg:                 "#282A36",
-		BgAlt:              "#44475A",
-		Comment:            "#6272A4",
-		Pink:               "#FF79C6",
-		Cyan:               "#8BE9FD",
-		Green:              "#50FA7B",
-		Yellow:             "#F1FA8C",
-		Purple:             "#BD93F9",
-		Orange:             "#FFB86C",
-		DiffAddFg:          "#50FA7B",
-		DiffAddBg:          "#0C2612",
-		DiffAddInlineBg:    "#19671F",
-		DiffRemoveFg:       "#FF5555",
-		DiffRemoveBg:       "#351212",
-		DiffRemoveInlineBg: "#741E1B",
+		Fg:      "#CDD6F4", // text
+		FgAlt:   "#6C7086", // overlay0
+		Bg:      "#1E1E2E", // base
+		BgAlt:   "#313244", // surface0
+		Comment: "#6C7086", // overlay0
+		Red:     "#F38BA8", // red
+		Blue:    "#89DCEB", // sky
+		Green:   "#A6E3A1", // green
+		Cyan:    "#94E2D5", // teal
+		Yellow:  "#F9E2AF", // yellow
+		Magenta: "#CBA6F7", // mauve
+		Orange:  "#FAB387", // peach
+		Brown:   "#F2CDCD", // rosewater
+		Diff: DiffPalette{
+			AddFg:          "#A6E3A1",
+			AddBg:          "#323B3F",
+			AddInlineBg:    "#394545",
+			RemoveFg:       "#F38BA8",
+			RemoveBg:       "#3D2E40",
+			RemoveInlineBg: "#483346",
+		},
 	}
 
 	PaletteGitHubDark = Palette{
-		Fg:                 "#E6EDF3",
-		FgDim:              "#7D8590",
-		Bg:                 "#0D1117",
-		BgAlt:              "#161B22",
-		Comment:            "#7D8590",
-		Pink:               "#FF7B72", // red
-		Cyan:               "#79C0FF", // blue
-		Green:              "#7EE787",
-		Yellow:             "#E3B341",
-		Purple:             "#D2A8FF",
-		Orange:             "#FFA657",
-		DiffAddFg:          "#7EE787",
-		DiffAddBg:          "#152616",
-		DiffAddInlineBg:    "#246724",
-		DiffRemoveFg:       "#FF7B72",
-		DiffRemoveBg:       "#351917",
-		DiffRemoveInlineBg: "#742722",
+		Fg:      "#E6EDF3",
+		FgAlt:   "#7D8590",
+		Bg:      "#0D1117",
+		BgAlt:   "#161B22",
+		Comment: "#7D8590",
+		Red:     "#FF7B72", // red
+		Blue:    "#79C0FF", // blue
+		Green:   "#7EE787",
+		Cyan:    "#39D2C0",
+		Yellow:  "#E3B341",
+		Magenta: "#D2A8FF",
+		Orange:  "#FFA657",
+		Brown:   "#A5834B",
+		Diff: DiffPalette{
+			AddFg:          "#7EE787",
+			AddBg:          "#11271D",
+			AddInlineBg:    "#31513F",
+			RemoveFg:       "#FF7B72",
+			RemoveBg:       "#2B171E",
+			RemoveInlineBg: "#532F37",
+		},
 	}
 
 	PaletteMolokai = Palette{
-		Fg:                 "#F8F8F2",
-		FgDim:              "#90908A",
-		Bg:                 "#1B1D1E",
-		BgAlt:              "#2D2E27",
-		Comment:            "#7E8E91",
-		Pink:               "#F92672",
-		Cyan:               "#66D9EF",
-		Green:              "#A6E22E",
-		Yellow:             "#E6DB74",
-		Purple:             "#AE81FF",
-		Orange:             "#FD971F",
-		DiffAddFg:          "#A6E22E",
-		DiffAddBg:          "#1F3209",
-		DiffAddInlineBg:    "#2D7411",
-		DiffRemoveFg:       "#F92672",
-		DiffRemoveBg:       "#300A15",
-		DiffRemoveInlineBg: "#7E1425",
+		Fg:      "#F8F8F2",
+		FgAlt:   "#90908A",
+		Bg:      "#1B1D1E",
+		BgAlt:   "#2D2E27",
+		Comment: "#7E8E91",
+		Red:     "#F92672",
+		Blue:    "#66D9EF",
+		Green:   "#A6E22E",
+		Cyan:    "#A1EFE4",
+		Yellow:  "#E6DB74",
+		Magenta: "#AE81FF",
+		Orange:  "#FD971F",
+		Brown:   "#CC6633",
+		Diff: DiffPalette{
+			AddFg:          "#A6E22E",
+			AddBg:          "#2A380C",
+			AddInlineBg:    "#39471B",
+			RemoveFg:       "#F92672",
+			RemoveBg:       "#461824",
+			RemoveInlineBg: "#552733",
+		},
 	}
 
 	PaletteNord = Palette{
-		Fg:                 "#D8DEE9", // nord4
-		FgDim:              "#4C566A", // nord3
-		Bg:                 "#2E3440", // nord0
-		BgAlt:              "#3B4252", // nord1
-		Comment:            "#616E88", // brightened nord3
-		Pink:               "#BF616A", // nord11
-		Cyan:               "#88C0D0", // nord8
-		Green:              "#A3BE8C", // nord14
-		Yellow:             "#EBCB8B", // nord13
-		Purple:             "#B48EAD", // nord15
-		Orange:             "#D08770", // nord12
-		DiffAddFg:          "#A3BE8C",
-		DiffAddBg:          "#21261C",
-		DiffAddInlineBg:    "#33672B",
-		DiffRemoveFg:       "#BF616A",
-		DiffRemoveBg:       "#351A1D",
-		DiffRemoveInlineBg: "#742929",
+		Fg:      "#D8DEE9", // nord4
+		FgAlt:   "#4C566A", // nord3
+		Bg:      "#2E3440", // nord0
+		BgAlt:   "#3B4252", // nord1
+		Comment: "#616E88", // brightened nord3
+		Red:     "#BF616A", // nord11
+		Blue:    "#88C0D0", // nord8
+		Green:   "#A3BE8C", // nord14
+		Cyan:    "#8FBCBB", // nord7
+		Yellow:  "#EBCB8B", // nord13
+		Magenta: "#B48EAD", // nord15
+		Orange:  "#D08770", // nord12
+		Brown:   "#A3685A",
+		Diff: DiffPalette{
+			AddFg:          "#88C0D0",
+			AddBg:          "#2F3A4A",
+			AddInlineBg:    "#3E4959",
+			RemoveFg:       "#BF616A",
+			RemoveBg:       "#4A323D",
+			RemoveInlineBg: "#59414C",
+		},
 	}
 
 	PaletteSolarizedDark = Palette{
-		Fg:                 "#839496", // base0
-		FgDim:              "#586E75", // base01
-		Bg:                 "#002B36", // base03
-		BgAlt:              "#073642", // base02
-		Comment:            "#586E75", // base01
-		Pink:               "#DC322F", // red
-		Cyan:               "#2AA198", // cyan
-		Green:              "#859900", // green
-		Yellow:             "#B58900", // yellow
-		Purple:             "#6C71C4", // violet
-		Orange:             "#CB4B16", // orange
-		DiffAddFg:          "#859900",
-		DiffAddBg:          "#212600",
-		DiffAddInlineBg:    "#336708",
-		DiffRemoveFg:       "#DC322F",
-		DiffRemoveBg:       "#350C0B",
-		DiffRemoveInlineBg: "#741713",
+		Fg:      "#839496", // base0
+		FgAlt:   "#586E75", // base01
+		Bg:      "#002B36", // base03
+		BgAlt:   "#073642", // base02
+		Comment: "#586E75", // base01
+		Red:     "#DC322F", // red
+		Blue:    "#268BD2", // blue
+		Green:   "#859900", // green
+		Cyan:    "#2AA198", // solarized cyan
+		Yellow:  "#B58900", // yellow
+		Magenta: "#6C71C4", // violet
+		Orange:  "#CB4B16", // orange
+		Brown:   "#D33682",
+		Diff: DiffPalette{
+			AddFg:          "#14A73A",
+			AddBg:          "#003427",
+			AddInlineBg:    "#044336",
+			RemoveFg:       "#DC322F",
+			RemoveBg:       "#1D1D25",
+			RemoveInlineBg: "#2C2C34",
+		},
 	}
 
 	PaletteTokyoNight = Palette{
-		Fg:                 "#C0CAF5",
-		FgDim:              "#565F89",
-		Bg:                 "#1A1B26",
-		BgAlt:              "#24283B",
-		Comment:            "#565F89",
-		Pink:               "#F7768E",
-		Cyan:               "#7DCFFF",
-		Green:              "#9ECE6A",
-		Yellow:             "#E0AF68",
-		Purple:             "#BB9AF7",
-		Orange:             "#FF9E64",
-		DiffAddFg:          "#9ECE6A",
-		DiffAddBg:          "#1D2613",
-		DiffAddInlineBg:    "#2E6720",
-		DiffRemoveFg:       "#F7768E",
-		DiffRemoveBg:       "#35191E",
-		DiffRemoveInlineBg: "#74272A",
+		Fg:      "#C0CAF5",
+		FgAlt:   "#565F89",
+		Bg:      "#1A1B26",
+		BgAlt:   "#24283B",
+		Comment: "#565F89",
+		Red:     "#F7768E",
+		Blue:    "#7DCFFF",
+		Green:   "#9ECE6A",
+		Cyan:    "#2AC3DE",
+		Yellow:  "#E0AF68",
+		Magenta: "#BB9AF7",
+		Orange:  "#FF9E64",
+		Brown:   "#DB4B4B",
+		Diff: DiffPalette{
+			AddFg:          "#41A6B5",
+			AddBg:          "#1E2C37",
+			AddInlineBg:    "#1E2C37",
+			RemoveFg:       "#DB4B4B",
+			RemoveBg:       "#33212A",
+			RemoveInlineBg: "#33212A",
+		},
 	}
 )
 
 // Light palettes.
 var (
 	PaletteCatppuccinLatte = Palette{
-		Fg:                 "#4C4F69", // text
-		FgDim:              "#9CA0B0", // overlay0
-		Bg:                 "#EFF1F5", // base
-		BgAlt:              "#E6E9EF", // mantle
-		Comment:            "#9CA0B0", // overlay0
-		Pink:               "#D20F39", // red
-		Cyan:               "#04A5E5", // sky
-		Green:              "#40A02B", // green
-		Yellow:             "#DF8E1D", // yellow
-		Purple:             "#8839EF", // mauve
-		Orange:             "#FE640B", // peach
-		DiffAddFg:          "#40A02B",
-		DiffAddBg:          "#C0E0BA",
-		DiffAddInlineBg:    "#ACDBA6",
-		DiffRemoveFg:       "#D20F39",
-		DiffRemoveBg:       "#F2BAC6",
-		DiffRemoveInlineBg: "#ED97A3",
+		Fg:      "#4C4F69", // text
+		FgAlt:   "#9CA0B0", // overlay0
+		Bg:      "#EFF1F5", // base
+		BgAlt:   "#E6E9EF", // mantle
+		Comment: "#9CA0B0", // overlay0
+		Red:     "#D20F39", // red
+		Blue:    "#04A5E5", // sky
+		Green:   "#40A02B", // green
+		Cyan:    "#179299", // teal
+		Yellow:  "#DF8E1D", // yellow
+		Magenta: "#8839EF", // mauve
+		Orange:  "#FE640B", // peach
+		Brown:   "#DD7878", // flamingo
+		Diff: DiffPalette{
+			AddFg:          "#40A02B",
+			AddBg:          "#D4E4D6",
+			AddInlineBg:    "#CCE0CC",
+			RemoveFg:       "#D20F39",
+			RemoveBg:       "#EACFD8",
+			RemoveInlineBg: "#E9C3CF",
+		},
 	}
 
 	PaletteGitHubLight = Palette{
-		Fg:                 "#1F2328",
-		FgDim:              "#656D76",
-		Bg:                 "#FFFFFF",
-		BgAlt:              "#F6F8FA",
-		Comment:            "#656D76",
-		Pink:               "#CF222E", // red
-		Cyan:               "#0969DA", // blue
-		Green:              "#116329",
-		Yellow:             "#9A6700",
-		Purple:             "#8250DF",
-		Orange:             "#BC4C00",
-		DiffAddFg:          "#116329",
-		DiffAddBg:          "#DAFBE1", // official GitHub diff green
-		DiffAddInlineBg:    "#C6F6CD",
-		DiffRemoveFg:       "#CF222E",
-		DiffRemoveBg:       "#FFEBE9", // official GitHub diff red
-		DiffRemoveInlineBg: "#FAC8C6",
+		Fg:      "#1F2328",
+		FgAlt:   "#656D76",
+		Bg:      "#FFFFFF",
+		BgAlt:   "#F6F8FA",
+		Comment: "#656D76",
+		Red:     "#CF222E", // red
+		Blue:    "#0969DA", // blue
+		Green:   "#116329",
+		Cyan:    "#1B7C83",
+		Yellow:  "#9A6700",
+		Magenta: "#8250DF",
+		Orange:  "#BC4C00",
+		Brown:   "#953800",
+		Diff: DiffPalette{
+			AddFg:          "#116329",
+			AddBg:          "#F4FFF6",
+			AddInlineBg:    "#DEFAE5",
+			RemoveFg:       "#CF222E",
+			RemoveBg:       "#FFF4F5",
+			RemoveInlineBg: "#FCC7CD",
+		},
+	}
+
+	PaletteOneLight = Palette{
+		Fg:      "#383A42", // mono-1
+		FgAlt:   "#696C77", // mono-2
+		Bg:      "#FAFAFA",
+		BgAlt:   "#F2F2F2",
+		Comment: "#A0A1A7", // mono-3
+		Red:     "#A626A4", // hue-3 (keywords)
+		Blue:    "#4078F2", // hue-2 (functions)
+		Green:   "#50A14F", // hue-4 (strings)
+		Cyan:    "#0184BC",
+		Yellow:  "#C18401", // hue-6-2 (types)
+		Magenta: "#986801", // hue-6 (numbers)
+		Orange:  "#E45649", // hue-5 (tags/variables)
+		Brown:   "#CA1243",
+		Diff: DiffPalette{
+			AddFg:          "#50A14F",
+			AddBg:          "#D4ECCE",
+			AddInlineBg:    "#BBE0B4",
+			RemoveFg:       "#E45649",
+			RemoveBg:       "#F8D7D0",
+			RemoveInlineBg: "#F2BBB5",
+		},
 	}
 
 	PaletteSolarizedLight = Palette{
-		Fg:                 "#657B83", // base00
-		FgDim:              "#93A1A1", // base1
-		Bg:                 "#FDF6E3", // base3
-		BgAlt:              "#EEE8D5", // base2
-		Comment:            "#93A1A1", // base1
-		Pink:               "#DC322F", // red
-		Cyan:               "#2AA198", // cyan
-		Green:              "#859900", // green
-		Yellow:             "#B58900", // yellow
-		Purple:             "#6C71C4", // violet
-		Orange:             "#CB4B16", // orange
-		DiffAddFg:          "#859900",
-		DiffAddBg:          "#DDE3BA",
-		DiffAddInlineBg:    "#C9DEA6",
-		DiffRemoveFg:       "#DC322F",
-		DiffRemoveBg:       "#F3BABA",
-		DiffRemoveInlineBg: "#EE9797",
+		Fg:      "#657B83", // base00
+		FgAlt:   "#93A1A1", // base1
+		Bg:      "#FDF6E3", // base3
+		BgAlt:   "#EEE8D5", // base2
+		Comment: "#93A1A1", // base1
+		Red:     "#DC322F", // red
+		Blue:    "#268BD2", // blue
+		Green:   "#859900", // green
+		Cyan:    "#2AA198", // solarized cyan
+		Yellow:  "#B58900", // yellow
+		Magenta: "#6C71C4", // violet
+		Orange:  "#CB4B16", // orange
+		Brown:   "#D33682",
+		Diff: DiffPalette{
+			AddFg:          "#14A73A",
+			AddBg:          "#DDF5D0",
+			AddInlineBg:    "#CEE6C1",
+			RemoveFg:       "#DC322F",
+			RemoveBg:       "#FFDDCE",
+			RemoveInlineBg: "#F6CEBF",
+		},
 	}
 
-	PaletteTokyoNightDay = Palette{
-		Fg:                 "#3760BF",
-		FgDim:              "#8990B3",
-		Bg:                 "#E1E2E7",
-		BgAlt:              "#D0D5E3",
-		Comment:            "#848CB5",
-		Pink:               "#F52A65",
-		Cyan:               "#007197",
-		Green:              "#587539",
-		Yellow:             "#8C6C3E",
-		Purple:             "#7847BD",
-		Orange:             "#B15C00",
-		DiffAddFg:          "#587539",
-		DiffAddBg:          "#C4CEBA",
-		DiffAddInlineBg:    "#B0C9A6",
-		DiffRemoveFg:       "#F52A65",
-		DiffRemoveBg:       "#FBBACD",
-		DiffRemoveInlineBg: "#F697AA",
+	PaletteNordLight = Palette{
+		Fg:      "#2E3440", // nord0
+		FgAlt:   "#4C566A", // nord3
+		Bg:      "#ECEFF4", // nord6
+		BgAlt:   "#E5E9F0", // nord5
+		Comment: "#4C566A", // nord3
+		Red:     "#BF616A", // nord11
+		Blue:    "#88C0D0", // nord8
+		Green:   "#A3BE8C", // nord14
+		Cyan:    "#8FBCBB", // nord7
+		Yellow:  "#EBCB8B", // nord13
+		Magenta: "#B48EAD", // nord15
+		Orange:  "#D08770", // nord12
+		Brown:   "#A3685A",
+		Diff: DiffPalette{
+			AddFg:          "#81A1C1",
+			AddBg:          "#DBE3EC",
+			AddInlineBg:    "#D6DFE9",
+			RemoveFg:       "#BF616A",
+			RemoveBg:       "#E5D9DF",
+			RemoveInlineBg: "#E3D2D8",
+		},
+	}
+
+	PaletteTokyoNightLight = Palette{
+		Fg:      "#3760BF",
+		FgAlt:   "#8990B3",
+		Bg:      "#E1E2E7",
+		BgAlt:   "#D0D5E3",
+		Comment: "#848CB5",
+		Red:     "#F52A65",
+		Blue:    "#2E7DE9",
+		Green:   "#587539",
+		Cyan:    "#007197",
+		Yellow:  "#8C6C3E",
+		Magenta: "#7847BD",
+		Orange:  "#B15C00",
+		Brown:   "#8C4351",
+		Diff: DiffPalette{
+			AddFg:          "#2D9C91",
+			AddBg:          "#DDECF0",
+			AddInlineBg:    "#CEDDE1",
+			RemoveFg:       "#E86868",
+			RemoveBg:       "#F5EDF2",
+			RemoveInlineBg: "#E6DEE3",
+		},
 	}
 )
 
-// Theme pairs a name with a palette.
+// Appearance indicates whether a theme is dark or light.
+type Appearance string
+
+const (
+	Dark  Appearance = "dark"
+	Light Appearance = "light"
+)
+
+// Theme pairs a name with a palette and its appearance.
 type Theme struct {
-	Name    string  `json:"name"`
-	Palette Palette `json:"palette"`
+	Name       string     `json:"name"`
+	Appearance Appearance `json:"appearance"`
+	Palette    Palette    `json:"palette"`
 }
 
 // Built-in themes — dark, then light, alphabetical within each group.
 var (
-	ThemeCatppuccinMocha = Theme{"Catppuccin Mocha", PaletteCatppuccinMocha}
-	ThemeDracula         = Theme{"Dracula", PaletteDracula}
-	ThemeGitHubDark      = Theme{"GitHub Dark", PaletteGitHubDark}
-	ThemeMolokai         = Theme{"Molokai", PaletteMolokai}
-	ThemeNord            = Theme{"Nord", PaletteNord}
-	ThemeSolarizedDark   = Theme{"Solarized Dark", PaletteSolarizedDark}
-	ThemeTokyoNight      = Theme{"Tokyo Night", PaletteTokyoNight}
+	ThemeCatppuccinMocha = Theme{"Catppuccin Mocha", Dark, PaletteCatppuccinMocha}
+	ThemeGitHubDark      = Theme{"GitHub Dark", Dark, PaletteGitHubDark}
+	ThemeMolokai         = Theme{"Molokai", Dark, PaletteMolokai}
+	ThemeNord            = Theme{"Nord", Dark, PaletteNord}
+	ThemeSolarizedDark   = Theme{"Solarized Dark", Dark, PaletteSolarizedDark}
+	ThemeTokyoNight      = Theme{"Tokyo Night", Dark, PaletteTokyoNight}
 
-	ThemeCatppuccinLatte = Theme{"Catppuccin Latte", PaletteCatppuccinLatte}
-	ThemeGitHubLight     = Theme{"GitHub Light", PaletteGitHubLight}
-	ThemeSolarizedLight  = Theme{"Solarized Light", PaletteSolarizedLight}
-	ThemeTokyoNightDay   = Theme{"Tokyo Night Day", PaletteTokyoNightDay}
+	ThemeCatppuccinLatte = Theme{"Catppuccin Latte", Light, PaletteCatppuccinLatte}
+	ThemeGitHubLight     = Theme{"GitHub Light", Light, PaletteGitHubLight}
+	ThemeNordLight       = Theme{"Nord Light", Light, PaletteNordLight}
+	ThemeOneLight        = Theme{"One Light", Light, PaletteOneLight}
+	ThemeSolarizedLight  = Theme{"Solarized Light", Light, PaletteSolarizedLight}
+	ThemeTokyoNightLight = Theme{"Tokyo Night Light", Light, PaletteTokyoNightLight}
 )
 
 // DefaultTheme is the theme used when no config exists.
@@ -289,7 +380,6 @@ var DefaultTheme = ThemeMolokai
 var Themes = []Theme{
 	// Dark
 	ThemeCatppuccinMocha,
-	ThemeDracula,
 	ThemeGitHubDark,
 	ThemeMolokai,
 	ThemeNord,
@@ -298,8 +388,10 @@ var Themes = []Theme{
 	// Light
 	ThemeCatppuccinLatte,
 	ThemeGitHubLight,
+	ThemeNordLight,
+	ThemeOneLight,
 	ThemeSolarizedLight,
-	ThemeTokyoNightDay,
+	ThemeTokyoNightLight,
 }
 
 // FindTheme returns the index and palette for a theme name, or -1 if not found.
@@ -351,8 +443,22 @@ func LoadUserThemes(dir string) {
 		if t.Name == "" {
 			t.Name = strings.TrimSuffix(e.Name(), ".json")
 		}
+		if t.Appearance == "" {
+			t.Appearance = Dark // default to dark if not specified
+		}
 		Themes = append(Themes, t)
 	}
+
+	// Re-sort: dark themes first, then light, alphabetical within each group.
+	slices.SortStableFunc(Themes, func(a, b Theme) int {
+		if a.Appearance != b.Appearance {
+			if a.Appearance == Light {
+				return 1 // light after dark
+			}
+			return -1
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
 }
 
 // P is the active palette. Use ApplyPalette to change it at runtime.

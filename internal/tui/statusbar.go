@@ -13,18 +13,6 @@ type keyHint struct {
 	Desc string
 }
 
-// sessionsStatusBar renders the status bar for the sessions list view.
-func sessionsStatusBar(width int) string {
-	return renderStatusBar(width, []keyHint{
-		{"q", "quit"},
-		{"a", "approve"},
-		{"x", "deny"},
-		{"enter", "details"},
-		{"s", "settings"},
-		{"?", "help"},
-	})
-}
-
 // detailStatusBar renders the status bar for the detail view.
 func detailStatusBar(width int) string {
 	return renderStatusBar(width, []keyHint{
@@ -49,7 +37,7 @@ func renderStatusBar(width int, hints []keyHint) string {
 	parts := make([]string, len(hints))
 	for i, h := range hints {
 		key := theme.StyleStatusBarKey.Render(h.Key)
-		desc := lipgloss.NewStyle().Foreground(theme.ColorDimText).Render(":" + h.Desc)
+		desc := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(":" + h.Desc)
 		parts[i] = key + desc
 	}
 	return theme.StyleStatusBar.Width(width).Render(strings.Join(parts, "  "))

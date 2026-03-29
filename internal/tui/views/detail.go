@@ -204,7 +204,7 @@ func (m *DetailModel) ApprovalBlock(width int) string {
 	toolLabel := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorWarning).Render(toolHeader)
 
 	// Command/file details
-	detail := lipgloss.NewStyle().Foreground(theme.ColorDimText).PaddingLeft(2).Render(summary)
+	detail := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).PaddingLeft(2).Render(summary)
 
 	// Description if available (e.g., "Echo with subshell to trigger approval")
 	var descLine string
@@ -236,7 +236,7 @@ func (m *DetailModel) ApprovalBlock(width int) string {
 			)
 			line = cursor + label
 		} else {
-			label := lipgloss.NewStyle().Foreground(theme.ColorDimText).Render(
+			label := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(
 				fmt.Sprintf("  %d. %s", i+1, opt.Label),
 			)
 			line = label
@@ -308,7 +308,7 @@ func (m *DetailModel) View() string {
 
 	if len(lines) == 0 {
 		return lipgloss.NewStyle().
-			Foreground(theme.ColorDimText).
+			Foreground(theme.ColorFgAlt).
 			Padding(2, 0).
 			Width(m.width).
 			Align(lipgloss.Center).
@@ -338,7 +338,7 @@ func (m *DetailModel) HeaderInfo() string {
 	project := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText).Render(s.Project)
 	line1 := project
 	if s.GitBranch != "" {
-		branch := lipgloss.NewStyle().Foreground(theme.ColorDimText).Render(" (" + s.GitBranch + ")")
+		branch := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(" (" + s.GitBranch + ")")
 		line1 += branch
 	}
 
@@ -443,8 +443,18 @@ func (m *DetailModel) renderLines() []string {
 				bulletStyle = bulletStyle.Foreground(theme.ColorWarning)
 			}
 			bullet := bulletStyle.Render("●")
-			tool := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText).Render(e.Content)
-			lines = append(lines, bullet+" "+tool)
+			boldStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText)
+			normalStyle := lipgloss.NewStyle().Foreground(theme.ColorText)
+			dimStyle := lipgloss.NewStyle().Foreground(theme.ColorFgAlt)
+			if idx := strings.IndexByte(e.Content, '('); idx >= 0 {
+				name := boldStyle.Render(e.Content[:idx])
+				open := normalStyle.Render("(")
+				inner := dimStyle.Render(e.Content[idx+1 : len(e.Content)-1])
+				close := normalStyle.Render(")")
+				lines = append(lines, bullet+" "+name+open+inner+close)
+			} else {
+				lines = append(lines, bullet+" "+boldStyle.Render(e.Content))
+			}
 
 		case claude.RoleDiff:
 			// Collect consecutive diff entries for batch syntax highlighting

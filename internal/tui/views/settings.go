@@ -2,7 +2,6 @@ package views
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -13,6 +12,7 @@ import (
 // SettingsModel displays the settings screen with theme selection.
 type SettingsModel struct {
 	cursor int
+	active int // index of the currently applied theme
 	width  int
 	height int
 }
@@ -23,7 +23,12 @@ func NewSettingsModel(activeTheme string) SettingsModel {
 	if i, _, ok := theme.FindTheme(activeTheme); ok {
 		cursor = i
 	}
-	return SettingsModel{cursor: cursor}
+	return SettingsModel{cursor: cursor, active: cursor}
+}
+
+// SetActive updates the active theme index after a selection.
+func (m *SettingsModel) SetActive(idx int) {
+	m.active = idx
 }
 
 // SetSize updates the available dimensions.
@@ -52,6 +57,11 @@ func (m *SettingsModel) SelectedTheme() (string, theme.Palette) {
 	return entry.Name, entry.Palette
 }
 
+// Cursor returns the current cursor index.
+func (m *SettingsModel) Cursor() int {
+	return m.cursor
+}
+
 // View renders the settings screen.
 func (m *SettingsModel) View() string {
 	title := lipgloss.NewStyle().
@@ -69,7 +79,7 @@ func (m *SettingsModel) View() string {
 	// Split themes into dark and light groups
 	var dark, light []indexedTheme
 	for i, t := range theme.Themes {
-		if isLightBg(t.Palette.Bg) {
+		if t.Appearance == theme.Light {
 			light = append(light, indexedTheme{i, t})
 		} else {
 			dark = append(dark, indexedTheme{i, t})
@@ -103,6 +113,10 @@ func (m *SettingsModel) renderThemeList(themes []indexedTheme) []string {
 	var rows []string
 	for _, it := range themes {
 		swatch := colorSwatch(it.theme.Palette)
+		check := "  "
+		if it.index == m.active {
+			check = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("✓ ")
+		}
 
 		var line string
 		if it.index == m.cursor {
@@ -110,36 +124,22 @@ func (m *SettingsModel) renderThemeList(themes []indexedTheme) []string {
 			label := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(
 				fmt.Sprintf(" %-18s", it.theme.Name),
 			)
-			line = cursor + label + "  " + swatch
+			line = cursor + label + check + swatch
 		} else {
-			label := lipgloss.NewStyle().Foreground(theme.ColorDimText).Render(
+			label := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(
 				fmt.Sprintf("  %-18s", it.theme.Name),
 			)
-			line = label + "  " + swatch
+			line = label + check + swatch
 		}
 		rows = append(rows, line)
 	}
 	return rows
 }
 
-// isLightBg returns true if a hex color string has high luminance (light background).
-func isLightBg(hex string) bool {
-	hex = strings.TrimPrefix(hex, "#")
-	if len(hex) != 6 {
-		return false
-	}
-	r, _ := strconv.ParseUint(hex[0:2], 16, 8)
-	g, _ := strconv.ParseUint(hex[2:4], 16, 8)
-	b, _ := strconv.ParseUint(hex[4:6], 16, 8)
-	// Perceived luminance (ITU-R BT.601)
-	lum := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
-	return lum > 128
-}
-
 // colorSwatch renders a row of colored blocks showing the palette's core colors
 // on the palette's background, so light and dark themes are visually distinct.
 func colorSwatch(p theme.Palette) string {
-	colors := []string{p.Pink, p.Green, p.Yellow, p.Cyan, p.Purple, p.Orange, p.Comment, p.Fg}
+	colors := []string{p.Red, p.Orange, p.Yellow, p.Green, p.Cyan, p.Blue, p.Magenta, p.Comment, p.Fg}
 	bg := lipgloss.Color(p.Bg)
 	parts := make([]string, len(colors))
 	for i, c := range colors {

@@ -74,9 +74,9 @@ make tools
 
 Built-in themes:
 
-**Dark:** Molokai (default), Catppuccin Mocha, Dracula, GitHub Dark, Nord, Solarized Dark, Tokyo Night
+**Dark:** Molokai (default), Catppuccin Mocha, GitHub Dark, Nord, Solarized Dark, Tokyo Night
 
-**Light:** Catppuccin Latte, GitHub Light, Solarized Light, Tokyo Night Day
+**Light:** Catppuccin Latte, GitHub Light, Nord Light, One Light, Solarized Light, Tokyo Night Light
 
 Press `s` to switch themes. Your selection is saved to `~/.config/c5s/config.json`.
 
@@ -87,27 +87,32 @@ Place `.json` files in `~/.config/c5s/themes/` — they appear in the theme pick
 ```json
 {
   "name": "My Custom Theme",
+  "appearance": "dark",
   "palette": {
     "fg": "#F8F8F2",
-    "fg_dim": "#90908A",
+    "fg_alt": "#90908A",
     "bg": "#272822",
     "bg_alt": "#3E3D32",
     "comment": "#75715E",
-    "pink": "#F92672",
-    "cyan": "#66D9EF",
-    "green": "#A6E22E",
-    "yellow": "#E6DB74",
-    "purple": "#AE81FF",
+    "red": "#F92672",
     "orange": "#FD971F",
-    "diff_add_fg": "#A6E22E",
-    "diff_add_bg": "#233009",
-    "diff_remove_fg": "#F92672",
-    "diff_remove_bg": "#420A1E"
+    "yellow": "#E6DB74",
+    "green": "#A6E22E",
+    "cyan": "#A1EFE4",
+    "blue": "#66D9EF",
+    "magenta": "#AE81FF",
+    "brown": "#CC6633",
+    "diff": {
+      "add_fg": "#A6E22E",
+      "add_bg": "#233009",
+      "remove_fg": "#F92672",
+      "remove_bg": "#420A1E"
+    }
   }
 }
 ```
 
-Color roles: `pink` = keywords/danger, `cyan` = links/types, `green` = success/names, `yellow` = strings/warnings, `purple` = constants/numbers, `orange` = secondary accent. The `diff_*` colors control inline diff highlighting in the transcript view.
+Accent color slots are ANSI-inspired: `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta`, `brown`. These are slot names — themes assign any hex value they want. The `diff` object controls inline diff highlighting in the transcript view.
 
 ## License
 

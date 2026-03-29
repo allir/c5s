@@ -18,7 +18,7 @@ var (
 	ColorWarning   color.Color
 	ColorDanger    color.Color
 	ColorText      color.Color
-	ColorDimText   color.Color
+	ColorFgAlt     color.Color
 	ColorBg        color.Color
 	ColorBgAlt     color.Color
 
@@ -50,23 +50,23 @@ func init() {
 func ApplyPalette(p Palette) {
 	P = p
 
-	ColorPrimary = lipgloss.Color(p.Purple)
-	ColorSecondary = lipgloss.Color(p.Cyan)
+	ColorPrimary = lipgloss.Color(p.Magenta)
+	ColorSecondary = lipgloss.Color(p.Blue)
 	ColorMuted = lipgloss.Color(p.Comment)
 	ColorSuccess = lipgloss.Color(p.Green)
 	ColorWarning = lipgloss.Color(p.Yellow)
-	ColorDanger = lipgloss.Color(p.Pink)
+	ColorDanger = lipgloss.Color(p.Red)
 	ColorText = lipgloss.Color(p.Fg)
-	ColorDimText = lipgloss.Color(p.FgDim)
+	ColorFgAlt = lipgloss.Color(p.FgAlt)
 	ColorBg = lipgloss.Color(p.Bg)
 	ColorBgAlt = lipgloss.Color(p.BgAlt)
 
-	ColorDiffAddFg = lipgloss.Color(p.DiffAddFg)
-	ColorDiffAddBg = lipgloss.Color(p.DiffAddBg)
-	ColorDiffAddInlineBg = lipgloss.Color(p.DiffAddInlineBg)
-	ColorDiffRemoveFg = lipgloss.Color(p.DiffRemoveFg)
-	ColorDiffRemoveBg = lipgloss.Color(p.DiffRemoveBg)
-	ColorDiffRemoveInlineBg = lipgloss.Color(p.DiffRemoveInlineBg)
+	ColorDiffAddFg = lipgloss.Color(p.Diff.AddFg)
+	ColorDiffAddBg = lipgloss.Color(p.Diff.AddBg)
+	ColorDiffAddInlineBg = lipgloss.Color(p.Diff.AddInlineBg)
+	ColorDiffRemoveFg = lipgloss.Color(p.Diff.RemoveFg)
+	ColorDiffRemoveBg = lipgloss.Color(p.Diff.RemoveBg)
+	ColorDiffRemoveInlineBg = lipgloss.Color(p.Diff.RemoveInlineBg)
 
 	applyStyles()
 }
@@ -82,7 +82,7 @@ func applyStyles() {
 		Bold(true)
 
 	StyleStatusBar = lipgloss.NewStyle().
-		Foreground(ColorDimText).
+		Foreground(ColorFgAlt).
 		PaddingLeft(1)
 
 	StyleStatusBarKey = lipgloss.NewStyle().
@@ -94,7 +94,7 @@ func applyStyles() {
 		Foreground(ColorText)
 
 	StyleTableRow = lipgloss.NewStyle().
-		Foreground(ColorDimText)
+		Foreground(ColorFgAlt)
 
 	StyleTableRowSelected = lipgloss.NewStyle().
 		Foreground(ColorText).
@@ -122,13 +122,20 @@ func StatusStyle(s claude.Status) lipgloss.Style {
 	case claude.StatusInput:
 		return lipgloss.NewStyle().Foreground(ColorWarning)
 	case claude.StatusFinished:
-		return lipgloss.NewStyle().Foreground(ColorDimText)
+		return lipgloss.NewStyle().Foreground(ColorFgAlt)
 	default:
-		return lipgloss.NewStyle().Foreground(ColorDimText)
+		return lipgloss.NewStyle().Foreground(ColorFgAlt)
 	}
 }
 
 // StatusIndicator returns a colored dot + label for the given status.
-func StatusIndicator(s claude.Status) string {
-	return StatusStyle(s).Render("●") + " " + s.String()
+// If bg is non-nil, it's applied to the entire indicator (for selected rows).
+func StatusIndicator(s claude.Status, bg ...color.Color) string {
+	dotStyle := StatusStyle(s)
+	labelStyle := lipgloss.NewStyle()
+	if len(bg) > 0 && bg[0] != nil {
+		dotStyle = dotStyle.Background(bg[0])
+		labelStyle = labelStyle.Background(bg[0])
+	}
+	return dotStyle.Render("●") + labelStyle.Render(" "+s.String())
 }

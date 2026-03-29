@@ -435,29 +435,29 @@ func tokenFgColor(t chroma.TokenType) color.Color {
 		chroma.CommentSpecial:
 		return lipgloss.Color(p.Comment)
 	case chroma.CommentPreproc:
-		return lipgloss.Color(p.Cyan)
+		return lipgloss.Color(p.Blue)
 
 	// Keywords
 	case chroma.Keyword, chroma.KeywordReserved, chroma.KeywordNamespace,
 		chroma.KeywordDeclaration, chroma.KeywordConstant:
-		return lipgloss.Color(p.Pink)
+		return lipgloss.Color(p.Red)
 	case chroma.KeywordType:
-		return lipgloss.Color(p.Cyan)
+		return lipgloss.Color(p.Blue)
 
 	// Operators
 	case chroma.Operator, chroma.OperatorWord:
-		return lipgloss.Color(p.Pink)
+		return lipgloss.Color(p.Red)
 
 	// Names
 	case chroma.NameFunction, chroma.NameClass, chroma.NameDecorator,
 		chroma.NameAttribute:
 		return lipgloss.Color(p.Green)
 	case chroma.NameBuiltin, chroma.NameBuiltinPseudo:
-		return lipgloss.Color(p.Cyan)
+		return lipgloss.Color(p.Blue)
 	case chroma.NameTag:
-		return lipgloss.Color(p.Pink)
+		return lipgloss.Color(p.Red)
 	case chroma.NameConstant:
-		return lipgloss.Color(p.Purple)
+		return lipgloss.Color(p.Magenta)
 
 	// Literals
 	case chroma.LiteralString, chroma.LiteralStringDouble, chroma.LiteralStringSingle,
@@ -466,11 +466,11 @@ func tokenFgColor(t chroma.TokenType) color.Color {
 		return lipgloss.Color(p.Yellow)
 	case chroma.LiteralStringEscape, chroma.LiteralStringRegex,
 		chroma.LiteralStringSymbol:
-		return lipgloss.Color(p.Purple)
+		return lipgloss.Color(p.Magenta)
 	case chroma.LiteralNumber, chroma.LiteralNumberFloat,
 		chroma.LiteralNumberHex, chroma.LiteralNumberInteger,
 		chroma.LiteralNumberOct, chroma.LiteralNumberBin:
-		return lipgloss.Color(p.Purple)
+		return lipgloss.Color(p.Magenta)
 
 	// Punctuation
 	case chroma.Punctuation:
@@ -478,7 +478,7 @@ func tokenFgColor(t chroma.TokenType) color.Color {
 
 	// Generic diff tokens
 	case chroma.GenericDeleted:
-		return lipgloss.Color(p.Pink)
+		return lipgloss.Color(p.Red)
 	case chroma.GenericInserted:
 		return lipgloss.Color(p.Green)
 	case chroma.GenericSubheading:
