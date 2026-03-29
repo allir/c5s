@@ -8,7 +8,8 @@ import (
 
 // Config holds persisted c5s settings.
 type Config struct {
-	Theme string `json:"theme"`
+	Theme      string `json:"theme"`
+	UseThemeBg bool   `json:"use_theme_bg"`
 }
 
 // LoadConfig reads the config from C5sConfigDir()/config.json.

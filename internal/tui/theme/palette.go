@@ -113,10 +113,10 @@ var (
 		Diff: DiffPalette{
 			AddFg:          "#A6E22E",
 			AddBg:          "#2A380C",
-			AddInlineBg:    "#39471B",
+			AddInlineBg:    "#2D7411",
 			RemoveFg:       "#F92672",
 			RemoveBg:       "#461824",
-			RemoveInlineBg: "#552733",
+			RemoveInlineBg: "#7E1425",
 		},
 	}
 

@@ -11,19 +11,25 @@ import (
 
 // SettingsModel displays the settings screen with theme selection.
 type SettingsModel struct {
-	cursor int
-	active int // index of the currently applied theme
-	width  int
-	height int
+	cursor     int
+	active     int // index of the currently applied theme
+	UseThemeBg bool
+	width      int
+	height     int
 }
 
 // NewSettingsModel creates a settings view with the cursor on the active theme.
-func NewSettingsModel(activeTheme string) SettingsModel {
+func NewSettingsModel(activeTheme string, useThemeBg bool) SettingsModel {
 	cursor := 0
 	if i, _, ok := theme.FindTheme(activeTheme); ok {
 		cursor = i
 	}
-	return SettingsModel{cursor: cursor, active: cursor}
+	return SettingsModel{cursor: cursor, active: cursor, UseThemeBg: useThemeBg}
+}
+
+// ToggleThemeBg flips the use-theme-background setting.
+func (m *SettingsModel) ToggleThemeBg() {
+	m.UseThemeBg = !m.UseThemeBg
 }
 
 // SetActive updates the active theme index after a selection.
@@ -95,8 +101,18 @@ func (m *SettingsModel) View() string {
 		rows = append(rows, m.renderThemeList(light)...)
 	}
 
+	// Theme background toggle
 	rows = append(rows, "")
-	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("enter:select  esc:back")
+	bgLabel := "Use theme background"
+	bgValue := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("off")
+	if m.UseThemeBg {
+		bgValue = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("on")
+	}
+	bgToggle := lipgloss.NewStyle().Foreground(theme.ColorText).Render("  "+bgLabel+": ") + bgValue
+	rows = append(rows, bgToggle)
+
+	rows = append(rows, "")
+	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("enter:select  b:toggle bg  esc:back")
 	rows = append(rows, hint)
 
 	content := strings.Join(rows, "\n")

@@ -55,16 +55,18 @@ type Model struct {
 	keys            KeyMap
 	configDir       string
 	activeTheme     string // current theme name (for config persistence)
+	useThemeBg      bool   // apply theme bg color to the entire screen
 	refreshInterval time.Duration
 	err             error
 }
 
 // NewModel creates a new root model.
-func NewModel(configDir string, refreshInterval time.Duration, activeTheme string) Model {
+func NewModel(configDir string, refreshInterval time.Duration, activeTheme string, useThemeBg bool) Model {
 	return Model{
 		sessions:        views.NewSessionsModel(),
 		keys:            DefaultKeyMap(),
 		configDir:       configDir,
+		useThemeBg:      useThemeBg,
 		activeTheme:     activeTheme,
 		refreshInterval: refreshInterval,
 	}
@@ -146,7 +148,19 @@ func (m Model) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	if m.useThemeBg {
+		v.BackgroundColor = theme.ColorBg
+	}
 	return v
+}
+
+func (m Model) saveConfig() {
+	go func() {
+		_ = claude.SaveConfig(claude.Config{
+			Theme:      m.activeTheme,
+			UseThemeBg: m.useThemeBg,
+		})
+	}()
 }
 
 func (m Model) renderSessionsView() string {
@@ -264,10 +278,13 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if m.detail != nil {
 				m.detail.InvalidateCache()
 			}
-			// Save config asynchronously
-			go func() { _ = claude.SaveConfig(claude.Config{Theme: name}) }()
+			m.saveConfig()
 			m.view = viewSessions
 			m.settings = nil
+		case key == "b":
+			m.settings.ToggleThemeBg()
+			m.useThemeBg = m.settings.UseThemeBg
+			m.saveConfig()
 		}
 		return m, nil
 	}
@@ -375,10 +392,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case matches(key, m.keys.Help):
 		// Placeholder — will show help overlay
 	case matches(key, m.keys.Settings):
-		settings := views.NewSettingsModel(m.activeTheme)
+		settings := views.NewSettingsModel(m.activeTheme, m.useThemeBg)
 		m.settings = &settings
 		m.view = viewSettings
-	case key == "d":
+	case key == "d" && debugEnabled:
 		dd := views.NewDiffDebugModel()
 		m.diffDebug = &dd
 		m.view = viewDiffDebug

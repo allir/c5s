@@ -83,7 +83,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		cleanup()
 	}()
 
-	m := tui.NewModel(configDir, refreshInterval, activeTheme)
+	m := tui.NewModel(configDir, refreshInterval, activeTheme, cfg.UseThemeBg)
 	p := tea.NewProgram(m)
 
 	_, err := p.Run()
