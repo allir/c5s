@@ -241,7 +241,7 @@ func charDiff(oldLine, newLine string) (oldRegions, newRegions []charRegion) {
 
 // renderDiffBlock takes a slice of consecutive diff entries (all sharing the
 // same FilePath) and returns syntax-highlighted, styled lines.
-func renderDiffBlock(entries []claude.TranscriptEntry) []string {
+func renderDiffBlock(entries []claude.TranscriptEntry, width int) []string {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -291,7 +291,13 @@ func renderDiffBlock(entries []claude.TranscriptEntry) []string {
 			codePart = pfxStyle.Render(p.code)
 		}
 
-		lines[i] = prefixStyled + codePart
+		line := prefixStyled + codePart
+		// Pad to near-full width so the diff background spans the row
+		// with a small right margin (like Claude Code's diff display).
+		if pad := width - 4 - lipgloss.Width(line); pad > 0 {
+			line += pfxStyle.Render(strings.Repeat(" ", pad))
+		}
+		lines[i] = line
 	}
 	return lines
 }

@@ -462,7 +462,7 @@ func (m *DetailModel) renderLines() []string {
 			for j < len(m.entries) && m.entries[j].Role == claude.RoleDiff {
 				j++
 			}
-			lines = append(lines, renderDiffBlock(m.entries[i:j])...)
+			lines = append(lines, renderDiffBlock(m.entries[i:j], m.width)...)
 			i = j - 1 // -1 because the loop will i++
 
 		case claude.RoleToolResult:

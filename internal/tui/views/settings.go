@@ -14,22 +14,18 @@ type SettingsModel struct {
 	cursor     int
 	active     int // index of the currently applied theme
 	UseThemeBg bool
+	FillBg     bool
 	width      int
 	height     int
 }
 
 // NewSettingsModel creates a settings view with the cursor on the active theme.
-func NewSettingsModel(activeTheme string, useThemeBg bool) SettingsModel {
+func NewSettingsModel(activeTheme string, useThemeBg, fillBg bool) SettingsModel {
 	cursor := 0
 	if i, _, ok := theme.FindTheme(activeTheme); ok {
 		cursor = i
 	}
-	return SettingsModel{cursor: cursor, active: cursor, UseThemeBg: useThemeBg}
-}
-
-// ToggleThemeBg flips the use-theme-background setting.
-func (m *SettingsModel) ToggleThemeBg() {
-	m.UseThemeBg = !m.UseThemeBg
+	return SettingsModel{cursor: cursor, active: cursor, UseThemeBg: useThemeBg, FillBg: fillBg}
 }
 
 // SetActive updates the active theme index after a selection.
@@ -52,13 +48,42 @@ func (m *SettingsModel) MoveUp() {
 
 // MoveDown moves the cursor down.
 func (m *SettingsModel) MoveDown() {
-	if m.cursor < len(theme.Themes)-1 {
+	maxIdx := len(theme.Themes) // bg toggle
+	if m.UseThemeBg {
+		maxIdx++ // fill-bg toggle visible
+	}
+	if m.cursor < maxIdx {
 		m.cursor++
 	}
 }
 
+// IsOnBgToggle returns true when the cursor is on the background toggle item.
+func (m *SettingsModel) IsOnBgToggle() bool {
+	return m.cursor == len(theme.Themes)
+}
+
+// IsOnFillBgToggle returns true when the cursor is on the fill-bg toggle item.
+func (m *SettingsModel) IsOnFillBgToggle() bool {
+	return m.cursor == len(theme.Themes)+1
+}
+
+// ClampCursor ensures the cursor doesn't point to a hidden toggle item.
+func (m *SettingsModel) ClampCursor() {
+	maxIdx := len(theme.Themes)
+	if m.UseThemeBg {
+		maxIdx++
+	}
+	if m.cursor > maxIdx {
+		m.cursor = maxIdx
+	}
+}
+
 // SelectedTheme returns the name and palette of the currently selected theme.
+// Returns zero values if the cursor is on a toggle item, not a theme.
 func (m *SettingsModel) SelectedTheme() (string, theme.Palette) {
+	if m.cursor >= len(theme.Themes) {
+		return "", theme.Palette{}
+	}
 	entry := theme.Themes[m.cursor]
 	return entry.Name, entry.Palette
 }
@@ -101,18 +126,15 @@ func (m *SettingsModel) View() string {
 		rows = append(rows, m.renderThemeList(light)...)
 	}
 
-	// Theme background toggle
+	// Toggle items
 	rows = append(rows, "")
-	bgLabel := "Use theme background"
-	bgValue := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("off")
+	rows = append(rows, m.renderToggle("Use theme background", m.UseThemeBg, m.IsOnBgToggle()))
 	if m.UseThemeBg {
-		bgValue = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("on")
+		rows = append(rows, m.renderToggle("Fill background (tmux)", m.FillBg, m.IsOnFillBgToggle()))
 	}
-	bgToggle := lipgloss.NewStyle().Foreground(theme.ColorText).Render("  "+bgLabel+": ") + bgValue
-	rows = append(rows, bgToggle)
 
 	rows = append(rows, "")
-	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("enter:select  b:toggle bg  esc:back")
+	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("enter:select  esc:back")
 	rows = append(rows, hint)
 
 	content := strings.Join(rows, "\n")
@@ -150,6 +172,19 @@ func (m *SettingsModel) renderThemeList(themes []indexedTheme) []string {
 		rows = append(rows, line)
 	}
 	return rows
+}
+
+func (m *SettingsModel) renderToggle(label string, value, selected bool) string {
+	valStr := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("off")
+	if value {
+		valStr = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("on")
+	}
+	if selected {
+		cursor := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Bold(true).Render("❯")
+		lbl := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(" " + label + ": ")
+		return cursor + lbl + valStr
+	}
+	return lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("  "+label+": ") + valStr
 }
 
 // colorSwatch renders a row of colored blocks showing the palette's core colors

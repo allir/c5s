@@ -2,6 +2,8 @@
 package tui
 
 import (
+	"fmt"
+	"image/color"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +15,20 @@ import (
 	"github.com/allir/c5s/internal/tui/theme"
 	"github.com/allir/c5s/internal/tui/views"
 )
+
+// nbsp is used by fillBg for padding instead of regular spaces. The Bubble Tea
+// renderer treats regular spaces as "clearable" and uses erase operations for
+// them. tmux renders erased cells differently from written cells when a
+// background color is set, causing visible shade mismatches. Non-breaking
+// spaces are not clearable, forcing the renderer to write each cell.
+const nbsp = "\u00a0"
+
+// DisplayConfig holds display settings passed from the config layer to the TUI.
+type DisplayConfig struct {
+	ActiveTheme string
+	UseThemeBg  bool
+	FillBg      bool
+}
 
 // DefaultRefreshInterval is how often the session list auto-refreshes.
 const DefaultRefreshInterval = 1500 * time.Millisecond
@@ -54,20 +70,18 @@ type Model struct {
 	diffDebug       *views.DiffDebugModel
 	keys            KeyMap
 	configDir       string
-	activeTheme     string // current theme name (for config persistence)
-	useThemeBg      bool   // apply theme bg color to the entire screen
+	display         DisplayConfig
 	refreshInterval time.Duration
 	err             error
 }
 
 // NewModel creates a new root model.
-func NewModel(configDir string, refreshInterval time.Duration, activeTheme string, useThemeBg bool) Model {
+func NewModel(configDir string, refreshInterval time.Duration, cfg DisplayConfig) Model {
 	return Model{
 		sessions:        views.NewSessionsModel(),
 		keys:            DefaultKeyMap(),
 		configDir:       configDir,
-		useThemeBg:      useThemeBg,
-		activeTheme:     activeTheme,
+		display:         cfg,
 		refreshInterval: refreshInterval,
 	}
 }
@@ -145,10 +159,14 @@ func (m Model) View() tea.View {
 		content = m.renderSessionsView()
 	}
 
+	if m.display.UseThemeBg && m.display.FillBg && m.width > 0 && m.height > 0 {
+		content = applyFillBg(content, theme.ColorBg, m.width, m.height)
+	}
+
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
-	if m.useThemeBg {
+	if m.display.UseThemeBg && !m.display.FillBg {
 		v.BackgroundColor = theme.ColorBg
 	}
 	return v
@@ -157,10 +175,55 @@ func (m Model) View() tea.View {
 func (m Model) saveConfig() {
 	go func() {
 		_ = claude.SaveConfig(claude.Config{
-			Theme:      m.activeTheme,
-			UseThemeBg: m.useThemeBg,
+			Theme:      m.display.ActiveTheme,
+			UseThemeBg: m.display.UseThemeBg,
+			FillBg:     m.display.FillBg,
 		})
 	}()
+}
+
+// applyFillBg paints an explicit SGR background on every cell in the viewport.
+// This avoids OSC 11 (View.BackgroundColor) which tmux renders differently
+// from SGR backgrounds — written cells and erased cells show different shades.
+func applyFillBg(content string, bg color.Color, width, height int) string {
+	r, g, b, _ := bg.RGBA()
+	bgSeq := fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r>>8, g>>8, b>>8)
+	nbspPad := strings.Repeat(nbsp, width)
+	emptyLine := bgSeq + nbspPad
+
+	// Single-pass replacer: spaces→NBSP and re-inject bg after every SGR reset.
+	// Regular spaces are "clearable" by the renderer which triggers erase
+	// operations that tmux renders at a different shade. NBSP is visually
+	// identical but non-clearable.
+	replacer := strings.NewReplacer(
+		" ", nbsp,
+		"\x1b[0m", "\x1b[0m"+bgSeq,
+		"\x1b[m", "\x1b[m"+bgSeq,
+	)
+
+	lines := strings.Split(content, "\n")
+
+	var buf strings.Builder
+	buf.Grow(width * 3 * height) // estimate: content + ANSI overhead
+
+	for i, line := range lines {
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		buf.WriteString(bgSeq)
+		_, _ = replacer.WriteString(&buf, line)
+		if pad := width - lipgloss.Width(line); pad > 0 {
+			buf.WriteString(bgSeq)
+			buf.WriteString(nbspPad[:pad*len(nbsp)])
+		}
+	}
+
+	for i := len(lines); i < height; i++ {
+		buf.WriteByte('\n')
+		buf.WriteString(emptyLine)
+	}
+
+	return buf.String()
 }
 
 func (m Model) renderSessionsView() string {
@@ -244,10 +307,14 @@ func (m Model) renderSettingsView() string {
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
+	if key == "ctrl+c" {
+		return m, tea.Quit
+	}
+
 	// Diff debug view
 	if m.view == viewDiffDebug && m.diffDebug != nil {
 		switch {
-		case matches(key, m.keys.Back), matches(key, m.keys.Quit):
+		case matches(key, m.keys.Back), key == "q":
 			m.view = viewSessions
 			m.diffDebug = nil
 		case matches(key, m.keys.Up):
@@ -271,20 +338,24 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case matches(key, m.keys.Down):
 			m.settings.MoveDown()
 		case matches(key, m.keys.Select):
-			name, palette := m.settings.SelectedTheme()
-			theme.ApplyPalette(palette)
-			m.activeTheme = name
-			m.settings.SetActive(m.settings.Cursor())
-			if m.detail != nil {
-				m.detail.InvalidateCache()
+			if m.settings.IsOnBgToggle() {
+				m.display.UseThemeBg = !m.display.UseThemeBg
+				m.settings.UseThemeBg = m.display.UseThemeBg
+				m.settings.ClampCursor()
+				m.saveConfig()
+			} else if m.settings.IsOnFillBgToggle() {
+				m.display.FillBg = !m.display.FillBg
+				m.settings.FillBg = m.display.FillBg
+				m.saveConfig()
+			} else if name, palette := m.settings.SelectedTheme(); name != "" {
+				theme.ApplyPalette(palette)
+				m.display.ActiveTheme = name
+				m.settings.SetActive(m.settings.Cursor())
+				if m.detail != nil {
+					m.detail.InvalidateCache()
+				}
+				m.saveConfig()
 			}
-			m.saveConfig()
-			m.view = viewSessions
-			m.settings = nil
-		case key == "b":
-			m.settings.ToggleThemeBg()
-			m.useThemeBg = m.settings.UseThemeBg
-			m.saveConfig()
 		}
 		return m, nil
 	}
@@ -392,7 +463,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case matches(key, m.keys.Help):
 		// Placeholder — will show help overlay
 	case matches(key, m.keys.Settings):
-		settings := views.NewSettingsModel(m.activeTheme, m.useThemeBg)
+		settings := views.NewSettingsModel(m.display.ActiveTheme, m.display.UseThemeBg, m.display.FillBg)
 		m.settings = &settings
 		m.view = viewSettings
 	case key == "d" && debugEnabled:

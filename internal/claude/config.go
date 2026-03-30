@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Theme      string `json:"theme"`
 	UseThemeBg bool   `json:"use_theme_bg"`
+	FillBg     bool   `json:"fill_bg"`
 }
 
 // LoadConfig reads the config from C5sConfigDir()/config.json.

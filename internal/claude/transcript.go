@@ -205,8 +205,8 @@ func parseAssistantMessage(content any, entries *[]TranscriptEntry) {
 	}
 }
 
-// contextLines is how many unchanged lines to show before/after a diff.
-const contextLines = 2
+// contextLines is how many unchanged lines to show around each diff hunk.
+const contextLines = 3
 
 // formatEditDiff computes a line-by-line diff between old_string and new_string
 // with line numbers and context. Reads the file to determine the starting line
@@ -224,7 +224,8 @@ func formatEditDiff(input map[string]any) []string {
 
 	// Find start line and file context
 	startLine := 0
-	var beforeCtx, afterCtx []string
+	var beforeCtx []string
+	var afterCtx []diffOp
 	if filePath != "" {
 		if data, err := os.ReadFile(filePath); err == nil {
 			fileContent := string(data)
@@ -243,19 +244,21 @@ func formatEditDiff(input map[string]any) []string {
 					beforeCtx = append(beforeCtx, fileLines[i])
 				}
 
+				// Collect file lines after the edit range as extra equal ops
+				// so the collapse logic can show trailing context naturally.
 				afterStart := startLine - 1 + len(matchLines)
 				for i := afterStart; i < min(afterStart+contextLines, len(fileLines)); i++ {
-					afterCtx = append(afterCtx, fileLines[i])
+					afterCtx = append(afterCtx, diffOp{kind: diffEqual, text: fileLines[i]})
 				}
 			}
 		}
 	}
 
-	// Compute LCS-based diff operations
+	// Compute LCS-based diff operations and append file context after
 	ops := diffLines(oldLines, newLines)
+	ops = append(ops, afterCtx...)
 
 	var lines []string
-	maxLines := 20
 	lineNum := startLine
 
 	// File context before
@@ -268,14 +271,58 @@ func formatEditDiff(input map[string]any) []string {
 	}
 
 	// Diff lines — format: "NNN + code" or "NNN - code" or "NNN   code"
-	newLineNum := lineNum
-	for _, op := range ops {
-		if len(lines) >= maxLines {
-			lines = append(lines, "  ...")
-			break
+	// Long runs of equal (unchanged) lines are collapsed to `...` with
+	// contextLines of context around each changed hunk. Trailing context
+	// after the last change is shown without a trailing `...`.
+
+	// Pre-compute: for each op, distance to nearest change (add/delete).
+	dist := make([]int, len(ops))
+	d := len(ops) // large sentinel
+	for i := len(ops) - 1; i >= 0; i-- {
+		if ops[i].kind != diffEqual {
+			d = 0
 		}
+		dist[i] = d
+		d++
+	}
+	d = len(ops)
+	for i := range ops {
+		if ops[i].kind != diffEqual {
+			d = 0
+		}
+		if d < dist[i] {
+			dist[i] = d
+		}
+		d++
+	}
+
+	newLineNum := lineNum
+	collapsed := false
+	for i, op := range ops {
 		switch op.kind {
 		case diffEqual:
+			if dist[i] > contextLines {
+				// Check if there's any change ahead — if not, just stop
+				hasChangeAhead := false
+				for j := i + 1; j < len(ops); j++ {
+					if ops[j].kind != diffEqual {
+						hasChangeAhead = true
+						break
+					}
+				}
+				if !hasChangeAhead {
+					// Past the last change's context — done
+					goto done
+				}
+				if !collapsed {
+					lines = append(lines, "  ...")
+					collapsed = true
+				}
+				lineNum++
+				newLineNum++
+				continue
+			}
+			collapsed = false
 			if startLine > 0 {
 				lines = append(lines, fmt.Sprintf("%3d   %s", lineNum, op.text))
 			} else {
@@ -299,17 +346,7 @@ func formatEditDiff(input map[string]any) []string {
 			newLineNum++
 		}
 	}
-
-	// File context after
-	if startLine > 0 {
-		for _, l := range afterCtx {
-			if len(lines) >= maxLines {
-				break
-			}
-			lines = append(lines, fmt.Sprintf("%3d   %s", newLineNum, l))
-			newLineNum++
-		}
-	}
+done:
 
 	return lines
 }

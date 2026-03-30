@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 
 	"github.com/allir/c5s/internal/claude"
@@ -52,10 +54,10 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	// Load user themes from config directory, then apply saved preference
 	theme.LoadUserThemes(filepath.Join(claude.C5sConfigDir(), "themes"))
 	cfg := claude.LoadConfig()
-	activeTheme := theme.DefaultTheme.Name
 	if _, p, ok := theme.FindTheme(cfg.Theme); ok {
 		theme.ApplyPalette(p)
-		activeTheme = cfg.Theme
+	} else {
+		cfg.Theme = theme.DefaultTheme.Name
 	}
 
 	configDir := claude.DefaultConfigDir()
@@ -83,8 +85,22 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		cleanup()
 	}()
 
-	m := tui.NewModel(configDir, refreshInterval, activeTheme, cfg.UseThemeBg)
-	p := tea.NewProgram(m)
+	m := tui.NewModel(configDir, refreshInterval, tui.DisplayConfig{
+		ActiveTheme: cfg.Theme,
+		UseThemeBg:  cfg.UseThemeBg,
+		FillBg:      cfg.FillBg,
+	})
+
+	var opts []tea.ProgramOption
+	// The colorprofile library ignores COLORTERM inside tmux and relies on
+	// Tc/RGB flags in `tmux info`, which are frequently missing even when true
+	// color works. Force TrueColor when COLORTERM says so or when inside tmux
+	// (which has supported true color via setrgbf/setrgbb since v2.2, 2016).
+	ct := strings.ToLower(os.Getenv("COLORTERM"))
+	if ct == "truecolor" || ct == "24bit" || os.Getenv("TMUX") != "" {
+		opts = append(opts, tea.WithColorProfile(colorprofile.TrueColor))
+	}
+	p := tea.NewProgram(m, opts...)
 
 	_, err := p.Run()
 	return err
