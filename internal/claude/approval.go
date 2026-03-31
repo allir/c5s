@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/allir/c5s/internal/config"
 )
 
 // ApprovalOption represents one choice in the approval prompt.
@@ -29,16 +31,6 @@ type PendingApproval struct {
 // staleApprovalThreshold is how long before a pending approval file is cleaned up.
 const staleApprovalThreshold = 10 * time.Minute
 
-// PendingDir returns the path to the pending approvals directory.
-func PendingDir() string {
-	return filepath.Join(C5sStateDir(), "pending")
-}
-
-// DecisionsDir returns the path to the approval decisions directory.
-func DecisionsDir() string {
-	return filepath.Join(C5sStateDir(), "decisions")
-}
-
 // hookApprovalInput is the structure written by the approval hook script.
 // It's the Claude Code hook stdin JSON with an appended "ppid" field.
 type hookApprovalInput struct {
@@ -57,7 +49,7 @@ type hookApprovalInput struct {
 // terminal) — if a newer hook event exists for the session, the approval is stale.
 // Stale files older than staleApprovalThreshold are cleaned up automatically.
 func ReadPendingApprovals(hookEvents map[int]HookEvent) (map[int]PendingApproval, error) {
-	files, err := readPIDFiles(PendingDir(), staleApprovalThreshold)
+	files, err := readPIDFiles(config.PendingDir(), staleApprovalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +59,7 @@ func ReadPendingApprovals(hookEvents map[int]HookEvent) (map[int]PendingApproval
 
 	// Read decision files once upfront instead of stat-per-pending-file
 	decisionSet := make(map[string]struct{})
-	if decEntries, err := os.ReadDir(DecisionsDir()); err == nil {
+	if decEntries, err := os.ReadDir(config.DecisionsDir()); err == nil {
 		for _, de := range decEntries {
 			decisionSet[de.Name()] = struct{}{}
 		}
@@ -134,7 +126,7 @@ func ReadPendingApprovals(hookEvents map[int]HookEvent) (map[int]PendingApproval
 // The hookPID identifies which specific hook invocation to respond to.
 // The option determines the behavior (allow/deny) and any permission updates.
 func WriteApprovalDecision(hookPID int, option ApprovalOption) error {
-	dir := DecisionsDir()
+	dir := config.DecisionsDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/allir/c5s/internal/config"
 )
 
 // HookEvent represents an event written by the c5s hook script.
@@ -19,17 +21,12 @@ type HookEvent struct {
 
 // hookScriptPath returns the path to the c5s status hook script.
 func hookScriptPath() string {
-	return filepath.Join(C5sConfigDir(), "hooks", "status-hook.sh")
+	return filepath.Join(config.HooksDir(), "status-hook.sh")
 }
 
 // approvalHookScriptPath returns the path to the c5s approval hook script.
 func approvalHookScriptPath() string {
-	return filepath.Join(C5sConfigDir(), "hooks", "approval-hook.sh")
-}
-
-// EventsDir returns the path to the c5s events directory.
-func EventsDir() string {
-	return filepath.Join(C5sStateDir(), "events")
+	return filepath.Join(config.HooksDir(), "approval-hook.sh")
 }
 
 // hookScript is the shell script that writes event files.
@@ -110,7 +107,7 @@ func InstallHooks(settingsPath string) error {
 	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
 		return fmt.Errorf("create hook dir: %w", err)
 	}
-	for _, dir := range []string{EventsDir(), PendingDir(), DecisionsDir()} {
+	for _, dir := range []string{config.EventsDir(), config.PendingDir(), config.DecisionsDir()} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create state dir: %w", err)
 		}
@@ -241,9 +238,9 @@ func UninstallHooks(settingsPath string) error {
 	// Clean up files
 	_ = os.Remove(scriptPath)
 	_ = os.Remove(approvalPath)
-	_ = os.RemoveAll(EventsDir())
-	_ = os.RemoveAll(PendingDir())
-	_ = os.RemoveAll(DecisionsDir())
+	_ = os.RemoveAll(config.EventsDir())
+	_ = os.RemoveAll(config.PendingDir())
+	_ = os.RemoveAll(config.DecisionsDir())
 
 	return nil
 }
@@ -251,7 +248,7 @@ func UninstallHooks(settingsPath string) error {
 // ReadHookEvents reads all event files and returns a map of PID → HookEvent.
 // Stale files (>24h) are cleaned up automatically.
 func ReadHookEvents() (map[int]HookEvent, error) {
-	files, err := readPIDFiles(EventsDir(), 24*time.Hour)
+	files, err := readPIDFiles(config.EventsDir(), 24*time.Hour)
 	if err != nil {
 		return nil, err
 	}

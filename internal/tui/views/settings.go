@@ -3,32 +3,91 @@ package views
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/allir/c5s/internal/config"
 	"github.com/allir/c5s/internal/tui/theme"
 )
 
+// MenuItemKind identifies the type of a selectable settings item.
+type MenuItemKind int
+
+const (
+	MenuRefresh  MenuItemKind = iota // cycles through refresh intervals
+	MenuTheme                        // selects a theme
+	MenuBgToggle                     // toggles theme background on/off
+	MenuFillMode                     // cycles background fill mode
+)
+
+// menuItem is one selectable entry in the settings menu.
+type menuItem struct {
+	kind     MenuItemKind
+	themeIdx int // index into theme.Themes (only for MenuTheme)
+}
+
+// indexedItem pairs a menuItem with its position in the flat items list.
+type indexedItem struct {
+	flatIdx int
+	item    menuItem
+}
+
 // SettingsModel displays the settings screen with theme selection.
 type SettingsModel struct {
-	cursor     int
-	active     int // index of the currently applied theme
-	UseThemeBg bool
-	FillBg     bool
-	width      int
-	height     int
+	items              []menuItem
+	cursor             int
+	active             int // index into items for the currently applied theme
+	UseThemeBackground bool
+	BackgroundFillMode config.BackgroundFillMode
+	RefreshInterval    time.Duration
+	refreshOptions     []time.Duration
+	width              int
+	height             int
 }
 
 // NewSettingsModel creates a settings view with the cursor on the active theme.
-func NewSettingsModel(activeTheme string, useThemeBg, fillBg bool) SettingsModel {
-	cursor := 0
-	if i, _, ok := theme.FindTheme(activeTheme); ok {
-		cursor = i
+func NewSettingsModel(activeTheme string, useThemeBg bool, fillMode config.BackgroundFillMode, refreshInterval time.Duration, refreshOptions []time.Duration) SettingsModel {
+	m := SettingsModel{
+		UseThemeBackground: useThemeBg,
+		BackgroundFillMode: fillMode,
+		RefreshInterval:    refreshInterval,
+		refreshOptions:     refreshOptions,
 	}
-	return SettingsModel{cursor: cursor, active: cursor, UseThemeBg: useThemeBg, FillBg: fillBg}
+	m.rebuildItems()
+
+	// Find which item is the active theme
+	for i, item := range m.items {
+		if item.kind == MenuTheme {
+			if t := theme.Themes[item.themeIdx]; t.Name == activeTheme {
+				m.active = i
+				break
+			}
+		}
+	}
+	return m
 }
 
-// SetActive updates the active theme index after a selection.
+// rebuildItems constructs the flat menu item list based on current state.
+func (m *SettingsModel) rebuildItems() {
+	m.items = m.items[:0]
+
+	// General
+	m.items = append(m.items, menuItem{kind: MenuRefresh})
+
+	// Themes
+	for i := range theme.Themes {
+		m.items = append(m.items, menuItem{kind: MenuTheme, themeIdx: i})
+	}
+
+	// Background settings
+	m.items = append(m.items, menuItem{kind: MenuBgToggle})
+	if m.UseThemeBackground {
+		m.items = append(m.items, menuItem{kind: MenuFillMode})
+	}
+}
+
+// SetActive updates the active theme marker.
 func (m *SettingsModel) SetActive(idx int) {
 	m.active = idx
 }
@@ -39,6 +98,13 @@ func (m *SettingsModel) SetSize(width, height int) {
 	m.height = height
 }
 
+// MoveDown moves the cursor down.
+func (m *SettingsModel) MoveDown() {
+	if m.cursor < len(m.items)-1 {
+		m.cursor++
+	}
+}
+
 // MoveUp moves the cursor up.
 func (m *SettingsModel) MoveUp() {
 	if m.cursor > 0 {
@@ -46,45 +112,54 @@ func (m *SettingsModel) MoveUp() {
 	}
 }
 
-// MoveDown moves the cursor down.
-func (m *SettingsModel) MoveDown() {
-	maxIdx := len(theme.Themes) // bg toggle
-	if m.UseThemeBg {
-		maxIdx++ // fill-bg toggle visible
+// CurrentKind returns the kind of the menu item under the cursor.
+func (m *SettingsModel) CurrentKind() MenuItemKind {
+	return m.items[m.cursor].kind
+}
+
+// CycleFillMode toggles BackgroundFillMode between standard and fill.
+func (m *SettingsModel) CycleFillMode() {
+	if m.BackgroundFillMode == config.BackgroundFillFill {
+		m.BackgroundFillMode = config.BackgroundFillStandard
+	} else {
+		m.BackgroundFillMode = config.BackgroundFillFill
 	}
-	if m.cursor < maxIdx {
-		m.cursor++
+}
+
+// CycleRefresh advances RefreshInterval to the next option.
+func (m *SettingsModel) CycleRefresh() {
+	for i, opt := range m.refreshOptions {
+		if opt == m.RefreshInterval {
+			m.RefreshInterval = m.refreshOptions[(i+1)%len(m.refreshOptions)]
+			return
+		}
+	}
+	if len(m.refreshOptions) > 0 {
+		m.RefreshInterval = m.refreshOptions[0]
 	}
 }
 
-// IsOnBgToggle returns true when the cursor is on the background toggle item.
-func (m *SettingsModel) IsOnBgToggle() bool {
-	return m.cursor == len(theme.Themes)
-}
-
-// IsOnFillBgToggle returns true when the cursor is on the fill-bg toggle item.
-func (m *SettingsModel) IsOnFillBgToggle() bool {
-	return m.cursor == len(theme.Themes)+1
-}
-
-// ClampCursor ensures the cursor doesn't point to a hidden toggle item.
+// ClampCursor ensures the cursor stays within the menu after items change.
 func (m *SettingsModel) ClampCursor() {
-	maxIdx := len(theme.Themes)
-	if m.UseThemeBg {
-		maxIdx++
+	if m.cursor >= len(m.items) {
+		m.cursor = len(m.items) - 1
 	}
-	if m.cursor > maxIdx {
-		m.cursor = maxIdx
-	}
+}
+
+// RebuildAndClamp rebuilds the menu (e.g., after toggling bg) and clamps the cursor.
+func (m *SettingsModel) RebuildAndClamp() {
+	m.rebuildItems()
+	m.ClampCursor()
 }
 
 // SelectedTheme returns the name and palette of the currently selected theme.
-// Returns zero values if the cursor is on a toggle item, not a theme.
+// Returns zero values if the cursor is not on a theme item.
 func (m *SettingsModel) SelectedTheme() (string, theme.Palette) {
-	if m.cursor >= len(theme.Themes) {
+	item := m.items[m.cursor]
+	if item.kind != MenuTheme {
 		return "", theme.Palette{}
 	}
-	entry := theme.Themes[m.cursor]
+	entry := theme.Themes[item.themeIdx]
 	return entry.Name, entry.Palette
 }
 
@@ -95,25 +170,31 @@ func (m *SettingsModel) Cursor() int {
 
 // View renders the settings screen.
 func (m *SettingsModel) View() string {
-	title := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.ColorText).
-		Render("Theme")
-
-	subheader := lipgloss.NewStyle().
-		Foreground(theme.ColorMuted).
-		Bold(true)
+	muted := lipgloss.NewStyle().Foreground(theme.ColorFgAlt)
+	subheader := lipgloss.NewStyle().Foreground(theme.ColorMuted).Bold(true)
+	sectionTitle := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText)
 
 	var rows []string
-	rows = append(rows, title)
 
-	// Split themes into dark and light groups
-	var dark, light []indexedTheme
-	for i, t := range theme.Themes {
-		if t.Appearance == theme.Light {
-			light = append(light, indexedTheme{i, t})
+	// General settings
+	rows = append(rows, sectionTitle.Render("General"))
+	rows = append(rows, "")
+	rows = append(rows, m.renderOption("Refresh interval", muted.Render(formatDuration(m.RefreshInterval)), m.CurrentKind() == MenuRefresh))
+
+	// Theme section
+	rows = append(rows, "")
+	rows = append(rows, sectionTitle.Render("Theme"))
+
+	var dark, light []indexedItem
+	for i, item := range m.items {
+		if item.kind != MenuTheme {
+			continue
+		}
+		ii := indexedItem{i, item}
+		if theme.Themes[item.themeIdx].Appearance == theme.Light {
+			light = append(light, ii)
 		} else {
-			dark = append(dark, indexedTheme{i, t})
+			dark = append(dark, ii)
 		}
 	}
 
@@ -126,11 +207,15 @@ func (m *SettingsModel) View() string {
 		rows = append(rows, m.renderThemeList(light)...)
 	}
 
-	// Toggle items
+	// Background settings
 	rows = append(rows, "")
-	rows = append(rows, m.renderToggle("Use theme background", m.UseThemeBg, m.IsOnBgToggle()))
-	if m.UseThemeBg {
-		rows = append(rows, m.renderToggle("Fill background (tmux)", m.FillBg, m.IsOnFillBgToggle()))
+	bgVal := muted.Render("off")
+	if m.UseThemeBackground {
+		bgVal = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("on")
+	}
+	rows = append(rows, m.renderOption("Use theme background", bgVal, m.CurrentKind() == MenuBgToggle))
+	if m.UseThemeBackground {
+		rows = append(rows, m.renderOption("Background fill mode", muted.Render(string(m.BackgroundFillMode)), m.CurrentKind() == MenuFillMode))
 	}
 
 	rows = append(rows, "")
@@ -141,31 +226,27 @@ func (m *SettingsModel) View() string {
 	return lipgloss.NewStyle().PaddingLeft(2).PaddingTop(1).Render(content)
 }
 
-// indexedTheme pairs a theme with its index in the global Themes list.
-type indexedTheme struct {
-	index int
-	theme theme.Theme
-}
-
-func (m *SettingsModel) renderThemeList(themes []indexedTheme) []string {
+func (m *SettingsModel) renderThemeList(themes []indexedItem) []string {
 	var rows []string
-	for _, it := range themes {
-		swatch := colorSwatch(it.theme.Palette)
+	for _, ii := range themes {
+		t := theme.Themes[ii.item.themeIdx]
+		swatch := colorSwatch(t.Palette)
+
 		check := "  "
-		if it.index == m.active {
+		if ii.flatIdx == m.active {
 			check = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("✓ ")
 		}
 
 		var line string
-		if it.index == m.cursor {
+		if ii.flatIdx == m.cursor {
 			cursor := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Bold(true).Render("❯")
 			label := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(
-				fmt.Sprintf(" %-18s", it.theme.Name),
+				fmt.Sprintf(" %-18s", t.Name),
 			)
 			line = cursor + label + check + swatch
 		} else {
 			label := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(
-				fmt.Sprintf("  %-18s", it.theme.Name),
+				fmt.Sprintf("  %-18s", t.Name),
 			)
 			line = label + check + swatch
 		}
@@ -174,17 +255,22 @@ func (m *SettingsModel) renderThemeList(themes []indexedTheme) []string {
 	return rows
 }
 
-func (m *SettingsModel) renderToggle(label string, value, selected bool) string {
-	valStr := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("off")
-	if value {
-		valStr = lipgloss.NewStyle().Foreground(theme.ColorSuccess).Render("on")
-	}
+// renderOption renders a label: value pair with cursor highlight when selected.
+// The value should be pre-styled by the caller.
+func (m *SettingsModel) renderOption(label, styledValue string, selected bool) string {
 	if selected {
 		cursor := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Bold(true).Render("❯")
 		lbl := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(" " + label + ": ")
-		return cursor + lbl + valStr
+		return cursor + lbl + styledValue
 	}
-	return lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("  "+label+": ") + valStr
+	return lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render("  "+label+": ") + styledValue
+}
+
+func formatDuration(d time.Duration) string {
+	if d >= time.Second && d%time.Second == 0 {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	return fmt.Sprintf("%dms", d.Milliseconds())
 }
 
 // colorSwatch renders a row of colored blocks showing the palette's core colors

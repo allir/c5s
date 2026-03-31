@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -16,9 +15,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/allir/c5s/internal/claude"
+	"github.com/allir/c5s/internal/config"
 	"github.com/allir/c5s/internal/tui"
 	"github.com/allir/c5s/internal/tui/theme"
-	"github.com/allir/c5s/internal/version"
 )
 
 var refreshInterval time.Duration
@@ -30,19 +29,6 @@ var rootCmd = &cobra.Command{
 	RunE:  runTUI,
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("c5s %s (commit: %s, built: %s)\n", version.Version, version.Commit, version.Date)
-	},
-}
-
-func init() {
-	rootCmd.Flags().DurationVar(&refreshInterval, "refresh", tui.DefaultRefreshInterval, "auto-refresh interval")
-	rootCmd.AddCommand(versionCmd)
-}
-
 // Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
@@ -52,19 +38,19 @@ func Execute() {
 
 func runTUI(cmd *cobra.Command, args []string) error {
 	// Load user themes from config directory, then apply saved preference
-	theme.LoadUserThemes(filepath.Join(claude.C5sConfigDir(), "themes"))
-	cfg := claude.LoadConfig()
-	if _, p, ok := theme.FindTheme(cfg.Theme); ok {
+	theme.LoadUserThemes(config.ThemesDir())
+	cfg := config.Load()
+	if _, p, ok := theme.FindTheme(cfg.Theme.Name); ok {
 		theme.ApplyPalette(p)
 	} else {
-		cfg.Theme = theme.DefaultTheme.Name
+		cfg.Theme.Name = theme.DefaultTheme.Name
 	}
 
-	configDir := claude.DefaultConfigDir()
-	settingsPath := filepath.Join(configDir, "settings.json")
+	claudeConfigDir := claude.ConfigDir()
+	claudeSettingsPath := claude.SettingsPath()
 
 	// Install hooks for authoritative session discovery
-	if err := claude.InstallHooks(settingsPath); err != nil {
+	if err := claude.InstallHooks(claudeSettingsPath); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to install hooks: %v\n", err)
 	}
 
@@ -72,7 +58,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	var cleanupOnce sync.Once
 	cleanup := func() {
 		cleanupOnce.Do(func() {
-			_ = claude.UninstallHooks(settingsPath)
+			_ = claude.UninstallHooks(claudeSettingsPath)
 		})
 	}
 	defer cleanup()
@@ -85,10 +71,20 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		cleanup()
 	}()
 
-	m := tui.NewModel(configDir, refreshInterval, tui.DisplayConfig{
-		ActiveTheme: cfg.Theme,
-		UseThemeBg:  cfg.UseThemeBg,
-		FillBg:      cfg.FillBg,
+	// Refresh interval: CLI flag > config > default
+	refresh := tui.DefaultRefreshInterval
+	if cfg.General.RefreshMS > 0 {
+		refresh = time.Duration(cfg.General.RefreshMS) * time.Millisecond
+	}
+	if cmd.Flags().Changed("refresh") {
+		refresh = refreshInterval
+	}
+
+	m := tui.NewModel(claudeConfigDir, tui.DisplayConfig{
+		ActiveTheme:        cfg.Theme.Name,
+		UseThemeBackground: cfg.Theme.UseThemeBackground,
+		BackgroundFillMode: cfg.Theme.ThemeBackgroundMode,
+		RefreshInterval:    refresh,
 	})
 
 	var opts []tea.ProgramOption
@@ -104,4 +100,8 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	_, err := p.Run()
 	return err
+}
+
+func init() {
+	rootCmd.Flags().DurationVar(&refreshInterval, "refresh", tui.DefaultRefreshInterval, "auto-refresh interval")
 }

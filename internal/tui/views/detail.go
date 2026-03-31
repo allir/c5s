@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 
@@ -28,6 +30,7 @@ type DetailModel struct {
 	inputText      string                // current text being typed
 	inputCursor    int                   // cursor position in input text
 	tmuxPane       string                // cached tmux pane ID for this session
+	spinner        spinner.Model
 }
 
 // NewDetailModel creates a detail view for the given session.
@@ -36,7 +39,8 @@ func NewDetailModel(session claude.Session) DetailModel {
 	m := DetailModel{
 		session:   session,
 		tmuxPane:  pane,
-		inputMode: pane != "", // auto-enable input if tmux is available
+		inputMode: pane != "",
+		spinner:   spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 	}
 	m.loadTranscript()
 	return m
@@ -144,6 +148,18 @@ func (m *DetailModel) SetSize(width, height int) {
 // Refresh reloads the transcript if the file has changed.
 func (m *DetailModel) Refresh() {
 	m.loadTranscript()
+}
+
+// SpinnerTick returns the command to start/continue the spinner animation.
+func (m *DetailModel) SpinnerTick() tea.Cmd {
+	return m.spinner.Tick
+}
+
+// SpinnerUpdate forwards a message to the spinner and returns any command.
+func (m *DetailModel) SpinnerUpdate(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.spinner, cmd = m.spinner.Update(msg)
+	return cmd
 }
 
 // InvalidateCache clears the rendered line cache and markdown renderer,
@@ -315,6 +331,16 @@ func (m *DetailModel) View() string {
 			Render("No transcript data.")
 	}
 
+	// Append working indicator when session is active
+	if m.session.Status == claude.StatusWorking {
+		style := lipgloss.NewStyle().Foreground(theme.ColorWarning)
+		frame := style.Render(m.spinner.View())
+		label := style.Render("Working…")
+		lines = append(lines, "", "  "+frame+" "+label, "")
+	} else {
+		lines = append(lines, "")
+	}
+
 	// Show a window of lines from the bottom, offset by scroll
 	end := max(len(lines)-m.scroll, 0)
 	start := max(end-m.height, 0)
@@ -409,13 +435,16 @@ func (m *DetailModel) renderLines() []string {
 
 		switch e.Role {
 		case claude.RoleUser:
-			// User prompt: ❯ styled like Claude Code's input prompt
-			prompt := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Bold(true).Render("❯")
+			// User prompt: highlighted row with ❯ prompt, like Claude Code
+			bg := theme.ColorBgAlt
+			prompt := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Background(bg).Bold(true).Render("❯")
+			textStyle := lipgloss.NewStyle().Foreground(theme.ColorText).Background(bg)
 			wrapped := wrapText(e.Content, maxContentWidth-2)
 			if len(wrapped) > 0 {
-				lines = append(lines, prompt+" "+lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(wrapped[0]))
+				first := prompt + " " + textStyle.Bold(true).Render(wrapped[0])
+				lines = append(lines, lipgloss.NewStyle().Background(bg).Width(m.width).Render(first))
 				for _, l := range wrapped[1:] {
-					lines = append(lines, "  "+lipgloss.NewStyle().Foreground(theme.ColorText).Render(l))
+					lines = append(lines, lipgloss.NewStyle().Background(bg).Width(m.width).Render("  "+textStyle.Render(l)))
 				}
 			}
 

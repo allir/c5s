@@ -41,17 +41,27 @@ const maxPeekLines = 10
 // extracted from user messages. Generous limit — the view truncates to fit.
 const maxSummaryLen = 200
 
-// DefaultConfigDir returns the default Claude config directory,
+const (
+	claudeConfigDirName = ".claude"
+	settingsFile        = "settings.json"
+)
+
+// ConfigDir returns the default Claude config directory,
 // respecting CLAUDE_CONFIG_DIR if set.
-func DefaultConfigDir() string {
+func ConfigDir() string {
 	if dir := os.Getenv("CLAUDE_CONFIG_DIR"); dir != "" {
 		return dir
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), ".claude")
+		return filepath.Join(os.TempDir(), claudeConfigDirName)
 	}
-	return filepath.Join(home, ".claude")
+	return filepath.Join(home, claudeConfigDirName)
+}
+
+// SettingsPath returns the path to Claude Code's settings.json.
+func SettingsPath() string {
+	return filepath.Join(ConfigDir(), settingsFile)
 }
 
 // pidFile represents the JSON structure in ~/.claude/sessions/{PID}.json.

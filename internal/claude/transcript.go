@@ -229,11 +229,9 @@ func formatEditDiff(input map[string]any) []string {
 	if filePath != "" {
 		if data, err := os.ReadFile(filePath); err == nil {
 			fileContent := string(data)
-			matchLines := oldLines
 			idx := strings.Index(fileContent, oldStr)
 			if idx == -1 {
 				idx = strings.Index(fileContent, newStr)
-				matchLines = newLines
 			}
 			if idx != -1 {
 				startLine = strings.Count(fileContent[:idx], "\n") + 1
@@ -244,9 +242,10 @@ func formatEditDiff(input map[string]any) []string {
 					beforeCtx = append(beforeCtx, fileLines[i])
 				}
 
-				// Collect file lines after the edit range as extra equal ops
-				// so the collapse logic can show trailing context naturally.
-				afterStart := startLine - 1 + len(matchLines)
+				// Use newLines length for after-context offset because the file
+				// on disk has the new content. Using oldLines would overlap with
+				// inserted lines when old_string is a prefix of new_string.
+				afterStart := startLine - 1 + len(newLines)
 				for i := afterStart; i < min(afterStart+contextLines, len(fileLines)); i++ {
 					afterCtx = append(afterCtx, diffOp{kind: diffEqual, text: fileLines[i]})
 				}

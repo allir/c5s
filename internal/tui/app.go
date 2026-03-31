@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/allir/c5s/internal/claude"
+	"github.com/allir/c5s/internal/config"
 	"github.com/allir/c5s/internal/tui/theme"
 	"github.com/allir/c5s/internal/tui/views"
 )
@@ -25,9 +27,21 @@ const nbsp = "\u00a0"
 
 // DisplayConfig holds display settings passed from the config layer to the TUI.
 type DisplayConfig struct {
-	ActiveTheme string
-	UseThemeBg  bool
-	FillBg      bool
+	ActiveTheme        string
+	UseThemeBackground bool
+	BackgroundFillMode config.BackgroundFillMode
+	RefreshInterval    time.Duration
+}
+
+// RefreshOptions are the selectable refresh intervals in the settings view.
+var RefreshOptions = []time.Duration{
+	500 * time.Millisecond,
+	1 * time.Second,
+	1500 * time.Millisecond,
+	2 * time.Second,
+	3 * time.Second,
+	5 * time.Second,
+	10 * time.Second,
 }
 
 // DefaultRefreshInterval is how often the session list auto-refreshes.
@@ -61,28 +75,26 @@ type tickMsg struct{}
 
 // Model is the root Bubble Tea model for the c5s application.
 type Model struct {
-	width           int
-	height          int
-	view            viewState
-	sessions        views.SessionsModel
-	detail          *views.DetailModel
-	settings        *views.SettingsModel
-	diffDebug       *views.DiffDebugModel
-	keys            KeyMap
-	configDir       string
-	display         DisplayConfig
-	refreshInterval time.Duration
-	err             error
+	width     int
+	height    int
+	view      viewState
+	sessions  views.SessionsModel
+	detail    *views.DetailModel
+	settings  *views.SettingsModel
+	diffDebug *views.DiffDebugModel
+	keys      KeyMap
+	configDir string
+	display   DisplayConfig
+	err       error
 }
 
 // NewModel creates a new root model.
-func NewModel(configDir string, refreshInterval time.Duration, cfg DisplayConfig) Model {
+func NewModel(configDir string, cfg DisplayConfig) Model {
 	return Model{
-		sessions:        views.NewSessionsModel(),
-		keys:            DefaultKeyMap(),
-		configDir:       configDir,
-		display:         cfg,
-		refreshInterval: refreshInterval,
+		sessions:  views.NewSessionsModel(),
+		keys:      DefaultKeyMap(),
+		configDir: configDir,
+		display:   cfg,
 	}
 }
 
@@ -109,14 +121,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.sessions.SetSessions(msg.sessions)
 		// Update detail view session if open
+		var cmds []tea.Cmd
 		if m.detail != nil {
 			for _, s := range msg.sessions {
 				if s.PID == m.detail.Session().PID {
+					wasWorking := m.detail.Session().Status == claude.StatusWorking
 					m.detail.UpdateSession(s)
 					m.detail.Refresh()
+					// Start spinner when session transitions to working
+					if !wasWorking && s.Status == claude.StatusWorking {
+						cmds = append(cmds, m.detail.SpinnerTick())
+					}
 					break
 				}
 			}
+		}
+		if len(cmds) > 0 {
+			return m, tea.Batch(cmds...)
+		}
+		return m, nil
+
+	case spinner.TickMsg:
+		if m.view == viewDetail && m.detail != nil && m.detail.Session().Status == claude.StatusWorking {
+			return m, m.detail.SpinnerUpdate(msg)
 		}
 		return m, nil
 
@@ -159,14 +186,14 @@ func (m Model) View() tea.View {
 		content = m.renderSessionsView()
 	}
 
-	if m.display.UseThemeBg && m.display.FillBg && m.width > 0 && m.height > 0 {
+	if m.display.UseThemeBackground && m.display.BackgroundFillMode == config.BackgroundFillFill && m.width > 0 && m.height > 0 {
 		content = applyFillBg(content, theme.ColorBg, m.width, m.height)
 	}
 
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
-	if m.display.UseThemeBg && !m.display.FillBg {
+	if m.display.UseThemeBackground && m.display.BackgroundFillMode != config.BackgroundFillFill {
 		v.BackgroundColor = theme.ColorBg
 	}
 	return v
@@ -174,10 +201,15 @@ func (m Model) View() tea.View {
 
 func (m Model) saveConfig() {
 	go func() {
-		_ = claude.SaveConfig(claude.Config{
-			Theme:      m.display.ActiveTheme,
-			UseThemeBg: m.display.UseThemeBg,
-			FillBg:     m.display.FillBg,
+		_ = config.Save(config.Config{
+			General: config.GeneralConfig{
+				RefreshMS: int(m.display.RefreshInterval / time.Millisecond),
+			},
+			Theme: config.ThemeConfig{
+				Name:                m.display.ActiveTheme,
+				UseThemeBackground:  m.display.UseThemeBackground,
+				ThemeBackgroundMode: m.display.BackgroundFillMode,
+			},
 		})
 	}()
 }
@@ -274,7 +306,7 @@ func (m Model) renderDetailView() string {
 		extra += 1 + strings.Count(approvalBlock, "\n") + 1 // separator + block lines
 	}
 	if inputLine != "" {
-		extra += 2 // separator + input line
+		extra += 1 + strings.Count(inputLine, "\n") + 1 // separator + input lines
 	}
 	contentHeight := max(m.height-chromeHeight-extra, 1)
 	m.detail.SetSize(m.width, contentHeight)
@@ -338,23 +370,30 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case matches(key, m.keys.Down):
 			m.settings.MoveDown()
 		case matches(key, m.keys.Select):
-			if m.settings.IsOnBgToggle() {
-				m.display.UseThemeBg = !m.display.UseThemeBg
-				m.settings.UseThemeBg = m.display.UseThemeBg
-				m.settings.ClampCursor()
+			switch m.settings.CurrentKind() {
+			case views.MenuBgToggle:
+				m.display.UseThemeBackground = !m.display.UseThemeBackground
+				m.settings.UseThemeBackground = m.display.UseThemeBackground
+				m.settings.RebuildAndClamp()
 				m.saveConfig()
-			} else if m.settings.IsOnFillBgToggle() {
-				m.display.FillBg = !m.display.FillBg
-				m.settings.FillBg = m.display.FillBg
+			case views.MenuFillMode:
+				m.settings.CycleFillMode()
+				m.display.BackgroundFillMode = m.settings.BackgroundFillMode
 				m.saveConfig()
-			} else if name, palette := m.settings.SelectedTheme(); name != "" {
-				theme.ApplyPalette(palette)
-				m.display.ActiveTheme = name
-				m.settings.SetActive(m.settings.Cursor())
-				if m.detail != nil {
-					m.detail.InvalidateCache()
+			case views.MenuRefresh:
+				m.settings.CycleRefresh()
+				m.display.RefreshInterval = m.settings.RefreshInterval
+				m.saveConfig()
+			case views.MenuTheme:
+				if name, palette := m.settings.SelectedTheme(); name != "" {
+					theme.ApplyPalette(palette)
+					m.display.ActiveTheme = name
+					m.settings.SetActive(m.settings.Cursor())
+					if m.detail != nil {
+						m.detail.InvalidateCache()
+					}
+					m.saveConfig()
 				}
-				m.saveConfig()
 			}
 		}
 		return m, nil
@@ -459,11 +498,14 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			detail := views.NewDetailModel(*sel)
 			m.detail = &detail
 			m.view = viewDetail
+			if sel.Status == claude.StatusWorking {
+				return m, m.detail.SpinnerTick()
+			}
 		}
 	case matches(key, m.keys.Help):
 		// Placeholder — will show help overlay
 	case matches(key, m.keys.Settings):
-		settings := views.NewSettingsModel(m.display.ActiveTheme, m.display.UseThemeBg, m.display.FillBg)
+		settings := views.NewSettingsModel(m.display.ActiveTheme, m.display.UseThemeBackground, m.display.BackgroundFillMode, m.display.RefreshInterval, RefreshOptions)
 		m.settings = &settings
 		m.view = viewSettings
 	case key == "d" && debugEnabled:
@@ -480,7 +522,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) tickCmd() tea.Cmd {
-	return tea.Tick(m.refreshInterval, func(time.Time) tea.Msg {
+	return tea.Tick(m.display.RefreshInterval, func(time.Time) tea.Msg {
 		return tickMsg{}
 	})
 }

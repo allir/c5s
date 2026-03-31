@@ -171,7 +171,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestScanReal(t *testing.T) {
-	configDir := DefaultConfigDir()
+	configDir := ConfigDir()
 	sessionsDir := filepath.Join(configDir, "sessions")
 	if _, err := os.Stat(sessionsDir); os.IsNotExist(err) {
 		t.Skip("skipping: no Claude sessions directory found")

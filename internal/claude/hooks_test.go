@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/allir/c5s/internal/config"
 )
 
 func TestInstallUninstallHooks(t *testing.T) {
@@ -65,7 +67,7 @@ func TestInstallUninstallHooks(t *testing.T) {
 	}
 
 	// Verify state directories exist
-	for _, dir := range []string{EventsDir(), PendingDir(), DecisionsDir()} {
+	for _, dir := range []string{config.EventsDir(), config.PendingDir(), config.DecisionsDir()} {
 		if _, err := os.Stat(dir); err != nil {
 			t.Fatalf("state dir not found: %v (%s)", err, dir)
 		}
@@ -116,7 +118,7 @@ func TestInstallUninstallHooks(t *testing.T) {
 	}
 
 	// State dirs should be removed
-	for _, dir := range []string{EventsDir(), PendingDir(), DecisionsDir()} {
+	for _, dir := range []string{config.EventsDir(), config.PendingDir(), config.DecisionsDir()} {
 		if _, err := os.Stat(dir); !os.IsNotExist(err) {
 			t.Errorf("state dir not cleaned up: %s", dir)
 		}
