@@ -220,7 +220,7 @@ func (m *DetailModel) ApprovalBlock(width int) string {
 	toolLabel := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorWarning).Render(toolHeader)
 
 	// Command/file details
-	detail := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).PaddingLeft(2).Render(summary)
+	detail := lipgloss.NewStyle().Foreground(theme.ColorText).PaddingLeft(2).Render(summary)
 
 	// Description if available (e.g., "Echo with subshell to trigger approval")
 	var descLine string
@@ -435,13 +435,23 @@ func (m *DetailModel) renderLines() []string {
 
 		switch e.Role {
 		case claude.RoleUser:
+			// Skip image source lines — render as sub-items instead
+			if strings.HasPrefix(e.Content, "[Image: source:") {
+				connector := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("  └ ")
+				// Extract path from "[Image: source: /path/to/file.png]"
+				path := strings.TrimPrefix(e.Content, "[Image: source: ")
+				path = strings.TrimSuffix(path, "]")
+				label := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("[Image: " + path + "]")
+				lines = append(lines, connector+label)
+				continue
+			}
 			// User prompt: highlighted row with ❯ prompt, like Claude Code
 			bg := theme.ColorBgAlt
-			prompt := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Background(bg).Bold(true).Render("❯")
+			prompt := lipgloss.NewStyle().Foreground(theme.ColorSecondary).Background(bg).Bold(true).Render("❯ ")
 			textStyle := lipgloss.NewStyle().Foreground(theme.ColorText).Background(bg)
 			wrapped := wrapText(e.Content, maxContentWidth-2)
 			if len(wrapped) > 0 {
-				first := prompt + " " + textStyle.Bold(true).Render(wrapped[0])
+				first := prompt + textStyle.Render(wrapped[0])
 				lines = append(lines, lipgloss.NewStyle().Background(bg).Width(m.width).Render(first))
 				for _, l := range wrapped[1:] {
 					lines = append(lines, lipgloss.NewStyle().Background(bg).Width(m.width).Render("  "+textStyle.Render(l)))

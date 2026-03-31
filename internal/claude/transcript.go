@@ -230,7 +230,7 @@ func formatEditDiff(input map[string]any) []string {
 		if data, err := os.ReadFile(filePath); err == nil {
 			fileContent := string(data)
 			idx := strings.Index(fileContent, oldStr)
-			if idx == -1 {
+			if idx == -1 && newStr != "" {
 				idx = strings.Index(fileContent, newStr)
 			}
 			if idx != -1 {
