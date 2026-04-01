@@ -9,8 +9,8 @@ import (
 )
 
 type keyHint struct {
-	Key  string
-	Desc string
+	key  string
+	desc string
 }
 
 // detailStatusBar renders the status bar for the detail view.
@@ -36,8 +36,8 @@ func settingsStatusBar(width int) string {
 func renderStatusBar(width int, hints []keyHint) string {
 	parts := make([]string, len(hints))
 	for i, h := range hints {
-		key := theme.StyleStatusBarKey.Render(h.Key)
-		desc := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(":" + h.Desc)
+		key := theme.StyleStatusBarKey.Render(h.key)
+		desc := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(":" + h.desc)
 		parts[i] = key + desc
 	}
 	return theme.StyleStatusBar.Width(width).Render(strings.Join(parts, "  "))

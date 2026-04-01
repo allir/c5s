@@ -32,8 +32,8 @@ func headerView(sessionCount, width int, hints []keyHint) string {
 	// Key hints: right-aligned on the subtitle line
 	parts := make([]string, len(hints))
 	for i, h := range hints {
-		key := theme.StyleStatusBarKey.Render(h.Key)
-		desc := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(":" + h.Desc)
+		key := theme.StyleStatusBarKey.Render(h.key)
+		desc := lipgloss.NewStyle().Foreground(theme.ColorFgAlt).Render(":" + h.desc)
 		parts[i] = key + desc
 	}
 	legend := strings.Join(parts, "  ")

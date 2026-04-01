@@ -517,7 +517,6 @@ func (m *DetailModel) renderLines() []string {
 	return lines
 }
 
-// wrapText wraps a string to the given width, preserving existing newlines.
 // mdRenderer returns a cached glamour renderer for the current width.
 func (m *DetailModel) mdRenderer() *glamour.TermRenderer {
 	if m.mdCache == nil || m.mdWidth != m.width {
@@ -547,6 +546,7 @@ func (m *DetailModel) renderMarkdown(content string) string {
 	return rendered
 }
 
+// wrapText wraps a string to the given width, preserving existing newlines.
 func wrapText(s string, width int) []string {
 	if width <= 0 {
 		return []string{s}

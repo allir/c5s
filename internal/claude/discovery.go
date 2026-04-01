@@ -3,6 +3,7 @@ package claude
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"io"
 	"os"
@@ -208,13 +209,10 @@ func Scan(configDir string) ([]Session, map[int]HookEvent, error) {
 	}
 
 	slices.SortFunc(sessions, func(a, b Session) int {
-		if a.Project != b.Project {
-			if a.Project < b.Project {
-				return -1
-			}
-			return 1
+		if c := cmp.Compare(a.Project, b.Project); c != 0 {
+			return c
 		}
-		return a.PID - b.PID
+		return cmp.Compare(a.PID, b.PID)
 	})
 
 	return sessions, hookEvts, nil
@@ -473,6 +471,8 @@ func extractTextContent(content any) string {
 	return ""
 }
 
+// Truncate shortens s to maxLen visible characters, appending "..." if truncated.
+// Leading XML-like tags are stripped. Operates on runes to avoid splitting multi-byte UTF-8.
 func Truncate(s string, maxLen int) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.TrimSpace(s)
@@ -494,8 +494,9 @@ func Truncate(s string, maxLen int) string {
 		}
 	}
 
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }

@@ -297,6 +297,7 @@ func formatEditDiff(input map[string]any) []string {
 
 	newLineNum := lineNum
 	collapsed := false
+diffLoop:
 	for i, op := range ops {
 		switch op.kind {
 		case diffEqual:
@@ -310,8 +311,7 @@ func formatEditDiff(input map[string]any) []string {
 					}
 				}
 				if !hasChangeAhead {
-					// Past the last change's context — done
-					goto done
+					break diffLoop
 				}
 				if !collapsed {
 					lines = append(lines, "  ...")
@@ -345,7 +345,6 @@ func formatEditDiff(input map[string]any) []string {
 			newLineNum++
 		}
 	}
-done:
 
 	return lines
 }
